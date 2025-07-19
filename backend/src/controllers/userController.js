@@ -11,7 +11,7 @@ const getUsers = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
     
-    const { role, search, isActive } = req.query;
+    const { role, search, status } = req.query;
     
     // Build query
     let query = {};
@@ -22,18 +22,21 @@ const getUsers = async (req, res) => {
     
     if (search) {
       query.$or = [
-        { fullName: { $regex: search, $options: 'i' } },
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
         { phone: { $regex: search, $options: 'i' } }
       ];
     }
     
-    if (isActive !== undefined) {
-      query.isActive = isActive === 'true';
+    if (status) {
+      query.status = status;
+    } else {
+      query.status = { $ne: 'deleted' }; // Exclude deleted users by default
     }
 
     const users = await User.find(query)
-      .select('-password -passwordResetToken -emailVerificationToken')
+      .select('-password -passwordResetToken -emailVerificationToken -twoFactorSecret')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -42,20 +45,22 @@ const getUsers = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      count: users.length,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      },
-      users
+      data: {
+        users,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(total / limit),
+          totalUsers: total,
+          hasNextPage: page < Math.ceil(total / limit),
+          hasPrevPage: page > 1
+        }
+      }
     });
   } catch (error) {
     console.error('Get users error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error while fetching users'
     });
   }
 };
@@ -68,7 +73,7 @@ const getUsers = async (req, res) => {
 const getUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
-      .select('-password -passwordResetToken -emailVerificationToken');
+      .select('-password -passwordResetToken -emailVerificationToken -twoFactorSecret');
     
     if (!user) {
       return res.status(404).json({
@@ -78,22 +83,32 @@ const getUser = async (req, res) => {
     }
 
     // Check if user can access this profile
-    if (req.user.role !== 'admin' && req.user.id !== req.params.id) {
+    if (req.user.role !== 'admin' && req.user._id.toString() !== req.params.id) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied'
+        message: 'Access denied - You can only view your own profile'
       });
     }
 
     res.status(200).json({
       success: true,
-      user
+      data: {
+        user
+      }
     });
   } catch (error) {
     console.error('Get user error:', error);
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format'
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error while fetching user'
     });
   }
 };
@@ -108,10 +123,10 @@ const updateUser = async (req, res) => {
     const userId = req.params.id;
     
     // Check if user can update this profile
-    if (req.user.role !== 'admin' && req.user.id !== userId) {
+    if (req.user.role !== 'admin' && req.user._id.toString() !== userId) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied'
+        message: 'Access denied - You can only update your own profile'
       });
     }
 
@@ -124,15 +139,22 @@ const updateUser = async (req, res) => {
       });
     }
 
-    // Fields that can be updated
+    // Fields that can be updated by regular users
     const allowedUpdates = [
-      'fullName', 'phone', 'address', 'bio', 'preferences',
-      'emergencyContact', 'medicalHistory', 'specialization'
+      'firstName', 'lastName', 'phone', 'address', 'bio', 
+      'emergencyContact', 'dateOfBirth', 'gender'
     ];
+    
+    // Role-specific fields
+    if (user.role === 'patient') {
+      allowedUpdates.push('medicalHistory', 'allergies', 'medications');
+    } else if (['doctor', 'nurse'].includes(user.role)) {
+      allowedUpdates.push('professionalInfo', 'specialization', 'availableHours');
+    }
     
     // Admin can update additional fields
     if (req.user.role === 'admin') {
-      allowedUpdates.push('isActive', 'role', 'license');
+      allowedUpdates.push('status', 'role', 'isEmailVerified', 'permissions');
     }
 
     // Update only allowed fields
@@ -143,6 +165,11 @@ const updateUser = async (req, res) => {
       }
     });
 
+    // Validate email if being updated (admin only)
+    if (updates.email && req.user.role !== 'admin') {
+      delete updates.email; // Remove email from updates for non-admin users
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       updates,
@@ -150,12 +177,14 @@ const updateUser = async (req, res) => {
         new: true,
         runValidators: true
       }
-    ).select('-password -passwordResetToken -emailVerificationToken');
+    ).select('-password -passwordResetToken -emailVerificationToken -twoFactorSecret');
 
     res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
-      user: updatedUser
+      data: {
+        user: updatedUser
+      }
     });
   } catch (error) {
     console.error('Update user error:', error);
@@ -168,9 +197,16 @@ const updateUser = async (req, res) => {
       });
     }
 
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format'
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error while updating user'
     });
   }
 };
@@ -208,59 +244,6 @@ const deleteUser = async (req, res) => {
   }
 };
 
-/**
- * @desc    Change password
- * @route   PUT /api/users/:id/change-password
- * @access  Private
- */
-const changePassword = async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-    const userId = req.params.id;
-
-    // Check if user can change this password
-    if (req.user.id !== userId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied'
-      });
-    }
-
-    const user = await User.findById(userId).select('+password');
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Check current password
-    const isCurrentPasswordCorrect = await user.comparePassword(currentPassword);
-    
-    if (!isCurrentPasswordCorrect) {
-      return res.status(400).json({
-        success: false,
-        message: 'Current password is incorrect'
-      });
-    }
-
-    // Update password
-    user.password = newPassword;
-    await user.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Password changed successfully'
-    });
-  } catch (error) {
-    console.error('Change password error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
-  }
-};
 
 /**
  * @desc    Get user statistics (Admin only)
@@ -309,6 +292,78 @@ const getUserStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error'
+    });
+  }
+};
+
+/**
+ * @desc    Change user password
+ * @route   PUT /api/users/:id/change-password
+ * @access  Private (Own profile only)
+ */
+const changePassword = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { currentPassword, newPassword } = req.body;
+
+    // Users can only change their own password
+    if (req.user._id.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied - You can only change your own password'
+      });
+    }
+
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password and new password are required'
+      });
+    }
+
+    // Get user with password
+    const user = await User.findById(userId).select('+password');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Check current password
+    const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+    
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: messages[0] || 'Validation error'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error while changing password'
     });
   }
 };

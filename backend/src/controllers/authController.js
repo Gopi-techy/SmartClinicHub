@@ -38,7 +38,8 @@ const setTokenCookie = (res, token) => {
 const register = async (req, res) => {
   try {
     const {
-      fullName,
+      firstName,
+      lastName,
       email,
       password,
       role,
@@ -54,7 +55,7 @@ const register = async (req, res) => {
     } = req.body;
 
     // Check if user already exists
-    const existingUser = await User.findByEmail(email);
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -64,7 +65,8 @@ const register = async (req, res) => {
 
     // Create user data object
     const userData = {
-      fullName,
+      firstName,
+      lastName,
       email,
       password,
       role,
@@ -79,9 +81,10 @@ const register = async (req, res) => {
       if (emergencyContact) userData.emergencyContact = emergencyContact;
       if (medicalHistory) userData.medicalHistory = medicalHistory;
     } else if (['doctor', 'nurse'].includes(role)) {
-      if (license) userData.license = license;
-      if (specialization) userData.specialization = specialization;
-      if (yearsOfExperience) userData.yearsOfExperience = yearsOfExperience;
+      userData.professionalInfo = {};
+      if (license) userData.professionalInfo.license = license;
+      if (specialization) userData.professionalInfo.specialization = specialization;
+      if (yearsOfExperience) userData.professionalInfo.yearsOfExperience = yearsOfExperience;
     }
 
     // Create user
@@ -102,6 +105,8 @@ const register = async (req, res) => {
       token,
       user: {
         id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
         fullName: user.fullName,
         email: user.email,
         role: user.role,
@@ -152,7 +157,7 @@ const login = async (req, res) => {
     }
 
     // Check if user exists and include password
-    const user = await User.findByEmail(email).select('+password');
+    const user = await User.findOne({ email }).select('+password');
     
     if (!user) {
       return res.status(401).json({
@@ -224,11 +229,13 @@ const login = async (req, res) => {
       token,
       user: {
         id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
         fullName: user.fullName,
         email: user.email,
         role: user.role,
         phone: user.phone,
-        specialization: user.specialization,
+        specialization: user.professionalInfo?.specialization,
         isEmailVerified: user.isEmailVerified,
         lastLogin: user.lastLogin
       }
@@ -275,17 +282,27 @@ const logout = async (req, res) => {
  */
 const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user._id)
+      .select('-password -passwordResetToken -emailVerificationToken -twoFactorSecret');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
     
     res.status(200).json({
       success: true,
-      user
+      data: {
+        user
+      }
     });
   } catch (error) {
     console.error('Get me error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error while fetching user profile'
     });
   }
 };
@@ -299,7 +316,7 @@ const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    const user = await User.findByEmail(email);
+    const user = await User.findOne({ email });
     
     if (!user) {
       return res.status(404).json({

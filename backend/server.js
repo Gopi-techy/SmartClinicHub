@@ -1,13 +1,19 @@
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
-const http = require('http');
-const socketIo = require('socket.io');
+const cookieParser = require('cookie-parser');
+
+// Import middleware
+const { errorHandler, notFound } = require('./src/middleware/errorHandler');
+const logger = require('./src/utils/logger');
+const { connectDatabase } = require('./src/config/database');
 
 // Import routes
 const authRoutes = require('./src/routes/auth');
@@ -19,28 +25,8 @@ const pharmacyRoutes = require('./src/routes/pharmacy');
 const adminRoutes = require('./src/routes/admin');
 const healthRoutes = require('./src/routes/health');
 
-// Import middleware
-const errorHandler = require('./src/middleware/errorHandler');
-const logger = require('./src/utils/logger');
-const { connectDatabase } = require('./src/config/database');
-
+// Create Express application
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    methods: ["GET", "POST"]
-  }
-});
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 // Security middleware
 app.use(helmet({
@@ -57,25 +43,84 @@ app.use(helmet({
       frameSrc: ["'none'"],
     },
   },
+  crossOriginEmbedderPolicy: false
 }));
-
-app.use(compression());
-app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
-app.use(limiter);
 
 // CORS configuration
-app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      'http://localhost:3000',
+      'http://localhost:3001'
+    ];
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+
+// Compression middleware
+app.use(compression());
+
+// Logging middleware
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined'));
+}
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiting to API routes
+app.use('/api/', limiter);
+
+// More strict rate limiting for auth routes
+// const authLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 5, // limit each IP to 5 requests per windowMs
+//   message: {
+//     success: false,
+//     message: 'Too many authentication attempts, please try again later.'
+//   }
+// });
+
+// app.use('/api/auth/login', authLimiter);
+// app.use('/api/auth/register', authLimiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser());
 
-// API Routes
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'SmartClinicHub API is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
+});
+
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/appointments', appointmentRoutes);
@@ -85,14 +130,19 @@ app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/health', healthRoutes);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    message: 'SmartClinicHub API is running',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0'
-  });
+// Handle undefined routes
+app.use(notFound);
+
+// Error handling middleware (should be last)
+app.use(errorHandler);
+
+// Create HTTP server and Socket.IO
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    methods: ["GET", "POST"]
+  }
 });
 
 // Socket.IO for real-time features
@@ -125,16 +175,8 @@ io.on('connection', (socket) => {
   });
 });
 
-// Error handling middleware
-app.use(errorHandler);
-
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    error: 'Route not found',
-    message: 'The requested endpoint does not exist'
-  });
-});
+// Make io available to routes
+app.set('io', io);
 
 // Database connection and server startup
 const PORT = process.env.PORT || 5000;
@@ -158,23 +200,21 @@ const startServer = async () => {
 };
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    mongoose.connection.close(false, () => {
-      logger.info('MongoDB connection closed');
-      process.exit(0);
-    });
+  server.close(async () => {
+    await mongoose.connection.close();
+    logger.info('MongoDB connection closed');
+    process.exit(0);
   });
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully');
-  server.close(() => {
-    mongoose.connection.close(false, () => {
-      logger.info('MongoDB connection closed');
-      process.exit(0);
-    });
+  server.close(async () => {
+    await mongoose.connection.close();
+    logger.info('MongoDB connection closed');
+    process.exit(0);
   });
 });
 
@@ -184,6 +224,12 @@ process.on('unhandledRejection', (err) => {
   server.close(() => {
     process.exit(1);
   });
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception:', err);
+  process.exit(1);
 });
 
 startServer();

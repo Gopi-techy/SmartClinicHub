@@ -7,18 +7,21 @@ SmartClinicHub is a comprehensive healthcare management system that leverages ar
 ## 🚀 Features
 
 ### Core Healthcare Management
+
 - **Patient Portal** - Complete health records, appointment booking, prescription management
 - **Doctor Dashboard** - Patient management, appointment scheduling, medical records access
 - **Admin Panel** - System administration, user management, analytics
 - **Nurse Interface** - Patient care coordination, vital signs monitoring
 
 ### AI-Powered Features
+
 - **AI Health Assistant** - Intelligent symptom checking and health guidance
 - **Medical Insights** - AI-driven health analytics and recommendations
 - **Smart Triage** - Automated patient prioritization and care routing
 - **Predictive Analytics** - Health trend analysis and early intervention alerts
 
 ### Advanced Capabilities
+
 - **Real-time Communication** - Socket.IO powered live updates and notifications
 - **Video Consultations** - Integrated telemedicine platform
 - **Emergency Services** - 24/7 emergency response and alert system
@@ -28,6 +31,7 @@ SmartClinicHub is a comprehensive healthcare management system that leverages ar
 ## 🏗️ Architecture
 
 ### Backend (Node.js + Express)
+
 - RESTful API with comprehensive endpoints
 - MongoDB database with optimized schemas
 - JWT authentication with role-based access control
@@ -37,6 +41,7 @@ SmartClinicHub is a comprehensive healthcare management system that leverages ar
 - Stripe payment processing
 
 ### Frontend (React.js PWA)
+
 - Modern React 18 with hooks and context
 - Redux Toolkit for state management
 - Progressive Web App capabilities
@@ -45,6 +50,7 @@ SmartClinicHub is a comprehensive healthcare management system that leverages ar
 - Real-time updates via WebSocket
 
 ### AI Integration
+
 - **Google Gemini AI** for intelligent health assistance
 - Natural language processing for medical queries
 - Symptom analysis and health recommendations
@@ -53,6 +59,7 @@ SmartClinicHub is a comprehensive healthcare management system that leverages ar
 ## 🛠️ Technology Stack
 
 **Backend:**
+
 - Node.js & Express.js
 - MongoDB with Mongoose
 - Socket.IO for real-time features
@@ -62,6 +69,7 @@ SmartClinicHub is a comprehensive healthcare management system that leverages ar
 - Stripe Payments
 
 **Frontend:**
+
 - React.js 18 with modern hooks
 - Redux Toolkit for state management
 - React Router for navigation
@@ -70,6 +78,7 @@ SmartClinicHub is a comprehensive healthcare management system that leverages ar
 - Socket.IO client for real-time updates
 
 **DevOps & Tools:**
+
 - Git version control
 - Environment-based configuration
 - API documentation
@@ -78,6 +87,7 @@ SmartClinicHub is a comprehensive healthcare management system that leverages ar
 ## � Getting Started
 
 ### Prerequisites
+
 - Node.js (v18 or higher)
 - MongoDB (local or MongoDB Atlas)
 - Google Gemini API key
@@ -85,6 +95,7 @@ SmartClinicHub is a comprehensive healthcare management system that leverages ar
 - Stripe account (for payments)
 
 ### Backend Setup
+
 ```bash
 cd backend
 npm install
@@ -94,6 +105,7 @@ npm run dev
 ```
 
 ### Frontend Setup
+
 ```bash
 cd frontend
 npm install
@@ -132,6 +144,7 @@ SmartClinicHub/
 ## � Configuration
 
 ### Environment Variables (Backend)
+
 ```env
 PORT=5000
 MONGODB_URI=mongodb://localhost:27017/smartclinic
@@ -142,6 +155,7 @@ STRIPE_SECRET_KEY=your_stripe_secret
 ```
 
 ### Environment Variables (Frontend)
+
 ```env
 REACT_APP_API_URL=http://localhost:5000/api
 REACT_APP_SOCKET_URL=http://localhost:5000
@@ -150,6 +164,7 @@ REACT_APP_SOCKET_URL=http://localhost:5000
 ## 🏥 User Roles & Permissions
 
 ### Patient
+
 - View and manage personal health records
 - Book and manage appointments
 - Access AI health assistant
@@ -157,6 +172,7 @@ REACT_APP_SOCKET_URL=http://localhost:5000
 - Emergency service access
 
 ### Doctor
+
 - Manage patient records and appointments
 - Prescribe medications
 - Access AI diagnostic tools
@@ -164,12 +180,14 @@ REACT_APP_SOCKET_URL=http://localhost:5000
 - Emergency response capabilities
 
 ### Nurse
+
 - Patient care coordination
 - Vital signs monitoring
 - Appointment assistance
 - Emergency response support
 
 ### Admin
+
 - System administration
 - User management
 - Analytics and reporting
@@ -216,6 +234,7 @@ This project is proprietary software developed for healthcare management purpose
 ## 📞 Support
 
 For technical support and inquiries:
+
 - Email: support@smartclinichub.com
 - Phone: 1-555-CLINIC (1-555-254-6425)
 

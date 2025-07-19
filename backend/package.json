@@ -12,14 +12,17 @@
     "test:auth": "jest --testPathPattern=auth",
     "test:emergency": "jest --testPathPattern=emergency",
     "test:ai": "jest --testPathPattern=ai",
+    "test:api": "node test-runner.js --all",
+    "test:api:auth": "node test-runner.js --auth",
+    "test:api:rbac": "node test-runner.js --rbac",
+    "test:api:appointments": "node test-runner.js --appointments",
     "build": "echo 'Backend build completed'",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "docs": "swagger-jsdoc -d swaggerDef.js -o swagger.json",
     "seed": "node scripts/seed.js",
-    "migrate": "node scripts/migrate.js",
-    "prepare": "husky install"
+    "migrate": "node scripts/migrate.js"
   },
   "keywords": [
     "healthcare",
@@ -66,8 +69,6 @@
     "@google/generative-ai": "^0.2.1",
     "@azure/storage-blob": "^12.17.0",
     "stripe": "^14.9.0",
-    "opencv4nodejs": "^5.6.0",
-    "face-api.js": "^0.22.2",
     "axios": "^1.6.2",
     "ioredis": "^5.3.2",
     "express-session": "^1.17.3",

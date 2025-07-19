@@ -1,0 +1,73 @@
+version: "3.8"
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: smartclinic_mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: smartclinic2025
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - smartclinic_network
+
+  backend:
+    build: ./backend
+    container_name: smartclinic_backend
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://admin:smartclinic2025@mongodb:27017/smartclinic?authSource=admin
+      - JWT_SECRET=smartclinic_jwt_secret_2025
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+    depends_on:
+      - mongodb
+    volumes:
+      - ./backend:/app
+    networks:
+      - smartclinic_network
+
+  frontend:
+    build: ./frontend
+    container_name: smartclinic_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:5000/api
+      - REACT_APP_GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+    networks:
+      - smartclinic_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: smartclinic_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - smartclinic_network
+
+volumes:
+  mongodb_data:
+
+networks:
+  smartclinic_network:
+    driver: bridge
