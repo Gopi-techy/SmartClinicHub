@@ -1,0 +1,128 @@
+import React from 'react';
+import Icon from '../../../components/AppIcon';
+import Button from '../../../components/ui/Button';
+
+const PrescriptionStatusCard = ({ prescriptions }) => {
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'active':
+        return 'bg-success/10 text-success';
+      case 'pending':
+        return 'bg-warning/10 text-warning';
+      case 'expired':
+        return 'bg-destructive/10 text-destructive';
+      case 'refill_needed':
+        return 'bg-accent/10 text-accent';
+      default:
+        return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'active':
+        return 'CheckCircle';
+      case 'pending':
+        return 'Clock';
+      case 'expired':
+        return 'XCircle';
+      case 'refill_needed':
+        return 'RefreshCw';
+      default:
+        return 'Pill';
+    }
+  };
+
+  return (
+    <div className="bg-card rounded-lg p-6 border border-border shadow-healthcare">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+            <Icon name="Pill" size={24} className="text-primary" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">Prescriptions</h3>
+            <p className="text-sm text-muted-foreground">{prescriptions.length} active medications</p>
+          </div>
+        </div>
+        <Button variant="ghost" size="sm" iconName="Plus">
+          Add
+        </Button>
+      </div>
+
+      <div className="space-y-4 mb-6">
+        {prescriptions.map((prescription, index) => (
+          <div key={index} className="bg-muted/30 rounded-lg p-4">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1">
+                <div className="flex items-center space-x-2 mb-1">
+                  <h4 className="font-semibold text-foreground">{prescription.medication}</h4>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(prescription.status)}`}>
+                    <Icon name={getStatusIcon(prescription.status)} size={12} className="mr-1" />
+                    {prescription.status.replace('_', ' ')}
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-2">{prescription.dosage} • {prescription.frequency}</p>
+                <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+                  <span>Prescribed: {prescription.prescribedDate}</span>
+                  <span>Refills: {prescription.refillsLeft}</span>
+                </div>
+              </div>
+            </div>
+
+            {prescription.status === 'refill_needed' && (
+              <div className="flex items-center justify-between bg-accent/5 rounded-lg p-3 mt-3">
+                <div className="flex items-center space-x-2">
+                  <Icon name="AlertCircle" size={16} className="text-accent" />
+                  <span className="text-sm font-medium text-accent">Refill needed soon</span>
+                </div>
+                <Button variant="outline" size="xs" className="text-accent border-accent hover:bg-accent hover:text-accent-foreground">
+                  Request Refill
+                </Button>
+              </div>
+            )}
+
+            {prescription.nextDose && (
+              <div className="flex items-center space-x-2 mt-3 text-sm text-muted-foreground">
+                <Icon name="Clock" size={14} />
+                <span>Next dose: {prescription.nextDose}</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          iconName="FileText"
+          iconPosition="left"
+          className="flex-1"
+        >
+          View All
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          iconName="RefreshCw"
+          iconPosition="left"
+          className="flex-1"
+        >
+          Request Refill
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          iconName="Download"
+          iconPosition="left"
+          className="flex-1"
+        >
+          Download List
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default PrescriptionStatusCard;

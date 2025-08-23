@@ -13,7 +13,7 @@ const cookieParser = require('cookie-parser');
 // Import middleware
 const { errorHandler, notFound } = require('./src/middleware/errorHandler');
 const logger = require('./src/utils/logger');
-const { connectDatabase } = require('./src/config/database');
+const { connectDatabase, initializeDatabase } = require('./src/config/database');
 
 // Import routes
 const authRoutes = require('./src/routes/auth');
@@ -187,11 +187,16 @@ const startServer = async () => {
     await connectDatabase();
     logger.info('MongoDB connected successfully');
 
+    // Initialize database with default data
+    await initializeDatabase();
+
     // Start server
     server.listen(PORT, () => {
       logger.info(`🚀 SmartClinicHub Backend Server running on port ${PORT}`);
       logger.info(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
       logger.info(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+      logger.info(`🔗 API Documentation: http://localhost:${PORT}/api-docs`);
+      logger.info(`💚 Health Check: http://localhost:${PORT}/health`);
     });
   } catch (error) {
     logger.error('Failed to start server:', error);

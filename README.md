@@ -84,33 +84,80 @@ SmartClinicHub is a comprehensive healthcare management system that leverages ar
 - API documentation
 - Error logging and monitoring
 
-## � Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 
 - Node.js (v18 or higher)
 - MongoDB (local or MongoDB Atlas)
-- Google Gemini API key
-- Azure Storage account (optional)
-- Stripe account (for payments)
+- Google Gemini API key (optional for AI features)
+- Azure Storage account (optional for file uploads)
+- Stripe account (optional for payments)
 
-### Backend Setup
+### 1. Clone and Setup
 
 ```bash
-cd backend
-npm install
-cp .env.example .env
-# Configure environment variables
+git clone <repository-url>
+cd SmartClinicHub
+npm run setup
+```
+
+### 2. Environment Configuration
+
+The setup script will create `.env` files from examples. Configure them with your API keys:
+
+**Backend (.env):**
+
+```env
+NODE_ENV=development
+PORT=5000
+MONGODB_URI=mongodb://localhost:27017/smartclinichub
+JWT_SECRET=your-super-secret-jwt-key
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+**Frontend (.env):**
+
+```env
+REACT_APP_API_URL=http://localhost:5000/api
+REACT_APP_GEMINI_API_KEY=your-gemini-api-key
+```
+
+### 3. Start Development Servers
+
+```bash
+# Start both frontend and backend
 npm run dev
+
+# Or start individually
+npm run dev:backend  # Backend on http://localhost:5000
+npm run dev:frontend # Frontend on http://localhost:3000
 ```
 
-### Frontend Setup
+### 4. Access the Application
 
-```bash
-cd frontend
-npm install
-npm start
-```
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:5000/api
+- **API Health Check**: http://localhost:5000/health
+
+## 👥 Demo Credentials
+
+Use these credentials to test different user roles:
+
+### Patient Access
+
+- **Email**: patient@smartclinichub.com
+- **Password**: patient123
+
+### Doctor Access
+
+- **Email**: doctor@smartclinichub.com
+- **Password**: doctor123
+
+### Admin Access
+
+- **Email**: admin@smartclinichub.com
+- **Password**: admin123
 
 ## 📁 Project Structure
 
@@ -131,34 +178,15 @@ SmartClinicHub/
 │   ├── src/
 │   │   ├── components/     # Reusable components
 │   │   ├── pages/          # Page components
-│   │   ├── hooks/          # Custom hooks
+│   │   ├── contexts/       # React contexts
 │   │   ├── store/          # Redux store
 │   │   ├── services/       # API services
-│   │   └── contexts/       # React contexts
+│   │   └── utils/          # Utility functions
 │   ├── public/             # Static assets
 │   └── package.json
 │
+├── docker-compose.yml      # Docker configuration
 └── README.md               # Project documentation
-```
-
-## � Configuration
-
-### Environment Variables (Backend)
-
-```env
-PORT=5000
-MONGODB_URI=mongodb://localhost:27017/smartclinic
-JWT_SECRET=your_jwt_secret
-GEMINI_API_KEY=your_gemini_api_key
-AZURE_STORAGE_CONNECTION_STRING=your_azure_connection
-STRIPE_SECRET_KEY=your_stripe_secret
-```
-
-### Environment Variables (Frontend)
-
-```env
-REACT_APP_API_URL=http://localhost:5000/api
-REACT_APP_SOCKET_URL=http://localhost:5000
 ```
 
 ## 🏥 User Roles & Permissions
@@ -193,7 +221,7 @@ REACT_APP_SOCKET_URL=http://localhost:5000
 - Analytics and reporting
 - Configuration management
 
-## � Security Features
+## 🔐 Security Features
 
 - **JWT Authentication** - Secure token-based authentication
 - **Role-Based Access Control** - Granular permission system
@@ -219,13 +247,110 @@ REACT_APP_SOCKET_URL=http://localhost:5000
 - ✅ Authentication System (Complete)
 - ✅ Role-based Dashboards (Complete)
 - ✅ AI Integration (Complete)
-- � Page Components (In Progress)
+- ✅ Page Components (Complete)
+- ✅ Database Integration (Complete)
+- ✅ Real-time Features (Complete)
 - 🔄 ML Model Integration (Planned)
 - 🔄 Production Deployment (Planned)
+
+## 🐳 Docker Deployment
+
+### Using Docker Compose
+
+```bash
+# Build and start all services
+npm run docker:up
+
+# View logs
+npm run docker:logs
+
+# Stop services
+npm run docker:down
+```
+
+### Manual Docker Commands
+
+```bash
+# Build images
+docker-compose build
+
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+npm test
+
+# Run backend tests only
+npm run test:backend
+
+# Run frontend tests only
+npm run test:frontend
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+## 📊 API Documentation
+
+Once the backend is running, access the API documentation:
+
+- **Swagger UI**: http://localhost:5000/api-docs
+- **Health Check**: http://localhost:5000/health
+
+## 🔧 Available Scripts
+
+### Root Level Scripts
+
+```bash
+npm run dev              # Start both frontend and backend in development
+npm run build            # Build both frontend and backend
+npm run start            # Start both frontend and backend in production
+npm run test             # Run all tests
+npm run lint             # Run linting for both projects
+npm run setup            # Complete setup including dependencies and env files
+npm run docker:up        # Start Docker services
+npm run docker:down      # Stop Docker services
+```
+
+### Backend Scripts
+
+```bash
+npm run dev:backend      # Start backend in development mode
+npm run build:backend    # Build backend
+npm run test:backend     # Run backend tests
+npm run lint:backend     # Run backend linting
+```
+
+### Frontend Scripts
+
+```bash
+npm run dev:frontend     # Start frontend in development mode
+npm run build:frontend   # Build frontend
+npm run test:frontend    # Run frontend tests
+npm run lint:frontend    # Run frontend linting
+```
 
 ## 🤝 Contributing
 
 This project follows healthcare industry standards and best practices. Contributions are welcome for approved features and improvements.
+
+### Development Guidelines
+
+1. **Code Style**: Follow ESLint and Prettier configurations
+2. **Testing**: Write tests for new features
+3. **Documentation**: Update documentation for API changes
+4. **Security**: Follow security best practices for healthcare data
+5. **Accessibility**: Ensure WCAG compliance for all UI components
 
 ## 📝 License
 
@@ -238,55 +363,33 @@ For technical support and inquiries:
 - Email: support@smartclinichub.com
 - Phone: 1-555-CLINIC (1-555-254-6425)
 
+## 🚨 Emergency Features
+
+SmartClinicHub includes comprehensive emergency response capabilities:
+
+- **24/7 Emergency Access** - Immediate access to emergency protocols
+- **Real-time Alerts** - Instant notification system for critical situations
+- **Emergency Contacts** - Quick access to emergency services
+- **Triage System** - AI-powered emergency assessment
+- **Location Services** - GPS-based emergency response coordination
+
+## 🔄 Updates and Maintenance
+
+### Regular Maintenance Tasks
+
+1. **Database Backups** - Automated daily backups
+2. **Security Updates** - Regular dependency updates
+3. **Performance Monitoring** - Real-time system health monitoring
+4. **User Training** - Regular training sessions for healthcare staff
+
+### Version Updates
+
+- **Major Updates**: Quarterly releases with new features
+- **Minor Updates**: Monthly bug fixes and improvements
+- **Security Patches**: Immediate deployment for security issues
+
 ---
 
 **SmartClinicHub** - Revolutionizing Healthcare with AI
 
-## 🧱 Technology Stack
-
-- **Frontend**: React.js, PWA, IndexedDB
-- **Backend**: Node.js, Express, MongoDB
-- **AI**: Gemini API, Custom ML Models
-- **Security**: JWT, AES Encryption
-- **Storage**: Azure Blob, MongoDB Atlas
-- **Notifications**: Twilio, SendGrid
-
-## 👥 User Roles
-
-- **Patient**: Book appointments, access records, emergency features
-- **Doctor**: Manage schedule, patient records, prescriptions
-- **Admin**: System management, analytics, user administration
-- **Pharmacy**: Process prescriptions, manage inventory
-
-## 🔐 Security Features
-
-- Multi-factor authentication
-- Role-based access control (RBAC)
-- AES encryption for sensitive data
-- Audit logging
-- Emergency access protocols
-
-## 📱 Mobile & Offline Support
-
-- Progressive Web App (PWA)
-- Offline emergency protocols
-- IndexedDB for local storage
-- Service workers for caching
-
-## 🤖 AI Capabilities
-
-- Emergency triage system
-- Symptom checker chatbot
-- Predictive analytics
-- Smart appointment scheduling
-
-## 📊 Deployment
-
-- Docker containerization
-- Azure App Service
-- CI/CD with GitHub Actions
-- MongoDB Atlas
-
-## 📄 License
-
-MIT License
+_Built with ❤️ for better healthcare outcomes_
