@@ -64,11 +64,12 @@ export const AuthProvider = ({ children }) => {
         try {
           dispatch({ type: 'AUTH_START' });
           
-          // For now, create a mock user object from localStorage
+          // For now, create a simple user object from localStorage
+          // TODO: Replace with real API call when backend is ready
           const userEmail = localStorage.getItem('userEmail');
           const userName = localStorage.getItem('userName');
           
-          const mockUser = {
+          const user = {
             id: 'user_' + Date.now(),
             email: userEmail,
             firstName: userName ? userName.split(' ')[0] : 'User',
@@ -80,7 +81,7 @@ export const AuthProvider = ({ children }) => {
           
           dispatch({
             type: 'AUTH_SUCCESS',
-            payload: { user: mockUser }
+            payload: { user }
           });
         } catch (error) {
           console.error('Auth check failed:', error);
@@ -167,6 +168,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Alias for register to match component usage
+  const signUp = register;
+
+  // Alias for login to match component usage  
+  const signIn = login;
+
   const logout = async () => {
     try {
       await authService.signOut();
@@ -192,7 +199,9 @@ export const AuthProvider = ({ children }) => {
   const value = {
     ...state,
     login,
+    signIn,
     register,
+    signUp,
     logout,
     clearError
   };

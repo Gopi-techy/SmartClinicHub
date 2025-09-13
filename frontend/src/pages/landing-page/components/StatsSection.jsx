@@ -173,7 +173,7 @@ const StatsSection = () => {
               }}
               className="relative group"
             >
-              <div className="bg-card border border-border rounded-xl p-8 shadow-healthcare hover:shadow-healthcare-lg transition-all duration-300 text-center relative overflow-hidden">
+              <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 text-center relative overflow-hidden">
                 {/* Animated Background */}
                 <motion.div
                   className={`absolute inset-0 bg-gradient-to-r ${stat.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}

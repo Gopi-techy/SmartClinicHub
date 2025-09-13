@@ -67,23 +67,23 @@ const FloatingElements = () => {
     <div className="fixed inset-0 pointer-events-none overflow-hidden">
       {/* Animated Background Gradient */}
       <motion.div
-        className="absolute inset-0 opacity-30"
+        className="absolute inset-0 opacity-20"
         animate={{
           background: [
-            "radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(16, 185, 129, 0.1) 0%, transparent 50%)",
-            "radial-gradient(circle at 80% 30%, rgba(59, 130, 246, 0.1) 0%, transparent 50%), radial-gradient(circle at 20% 70%, rgba(16, 185, 129, 0.1) 0%, transparent 50%)",
-            "radial-gradient(circle at 50% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%), radial-gradient(circle at 50% 20%, rgba(16, 185, 129, 0.1) 0%, transparent 50%)",
-            "radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(16, 185, 129, 0.1) 0%, transparent 50%)"
+            "radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.05) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(16, 185, 129, 0.05) 0%, transparent 50%)",
+            "radial-gradient(circle at 80% 30%, rgba(59, 130, 246, 0.05) 0%, transparent 50%), radial-gradient(circle at 20% 70%, rgba(16, 185, 129, 0.05) 0%, transparent 50%)",
+            "radial-gradient(circle at 50% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 50%), radial-gradient(circle at 50% 20%, rgba(16, 185, 129, 0.05) 0%, transparent 50%)",
+            "radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.05) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(16, 185, 129, 0.05) 0%, transparent 50%)"
           ]
         }}
-        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+        transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
       />
 
       {/* Floating Particles */}
       {particles.map((particle) => (
         <motion.div
           key={particle.id}
-          className="absolute bg-primary/20 rounded-full"
+          className="absolute bg-primary/10 rounded-full"
           style={{
             width: particle.size,
             height: particle.size,
@@ -109,7 +109,7 @@ const FloatingElements = () => {
       {medicalElements.map((element, index) => (
         <motion.div
           key={index}
-          className="absolute text-2xl opacity-20 select-none"
+          className="absolute text-2xl opacity-10 select-none"
           style={{
             left: `${element.x}%`,
             top: `${element.y}%`,

@@ -1,18 +1,17 @@
-import React from "react";
-import { BrowserRouter, Routes as RouterRoutes, Route, Navigate } from "react-router-dom";
-import ScrollToTop from "components/ScrollToTop";
-import ErrorBoundary from "components/ErrorBoundary";
+ import React from "react";
+import { Routes as RouterRoutes, Route, Navigate } from "react-router-dom";
+import ScrollToTop from "./components/ScrollToTop";
 import { useAuth } from "./contexts/AuthContext";
 // Add your imports here
-import LandingPageSimple from "pages/landing-page/LandingPageSimple";
-import LoginRegistration from "pages/login-registration";
-import AdminDashboard from "pages/admin-dashboard";
-import PatientDashboard from "pages/patient-dashboard";
-import AppointmentBooking from "pages/appointment-booking";
-import HealthRecordsManagement from "pages/health-records-management";
-import DoctorDashboard from "pages/doctor-dashboard";
-import MessagingPage from "pages/messaging";
-import NotFound from "pages/NotFound";
+import LandingPage from "./pages/landing-page";
+import LoginRegistration from "./pages/login-registration";
+import AdminDashboard from "./pages/admin-dashboard";
+import PatientDashboard from "./pages/patient-dashboard";
+import AppointmentBooking from "./pages/appointment-booking";
+import HealthRecordsManagement from "./pages/health-records-management";
+import DoctorDashboard from "./pages/doctor-dashboard";
+import MessagingPage from "./pages/messaging";
+import NotFound from "./pages/NotFound";
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -62,13 +61,19 @@ const Routes = () => {
   const { isAuthenticated, userRole } = useAuth();
 
   return (
-    <BrowserRouter>
-      <ErrorBoundary>
-        <ScrollToTop />
-        <RouterRoutes>
+    <>
+      <ScrollToTop />
+      <RouterRoutes>
           {/* Public Routes */}
-          <Route path="/" element={<LandingPageSimple />} />
-          <Route path="/landing-page" element={<LandingPageSimple />} />
+          <Route 
+            path="/" 
+            element={
+              isAuthenticated ? 
+                <Navigate to={`/${userRole}-dashboard`} replace /> : 
+                <LandingPage />
+            } 
+          />
+          <Route path="/landing-page" element={<LandingPage />} />
           <Route 
             path="/login-registration" 
             element={
@@ -143,8 +148,7 @@ const Routes = () => {
           {/* 404 Route */}
           <Route path="*" element={<NotFound />} />
         </RouterRoutes>
-      </ErrorBoundary>
-    </BrowserRouter>
+    </>
   );
 };
 

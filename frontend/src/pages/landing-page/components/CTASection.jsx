@@ -115,15 +115,15 @@ const CTASection = () => {
                     variant="secondary"
                     size="xl" 
                     onClick={() => navigate('/login-registration')}
-                    className="group bg-white text-primary hover:bg-white/90 font-semibold px-8 py-4 relative overflow-hidden"
+                    className="group bg-white text-primary hover:bg-white/90 font-bold px-10 py-5 relative overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
                   >
                     <motion.div
-                      animate={{ scale: [1, 1.2, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className="absolute inset-0 bg-primary/5 rounded-md"
+                      animate={{ scale: [1, 1.1, 1] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                      className="absolute inset-0 bg-primary/5 rounded-xl"
                     />
-                    Get Started Free Today
-                    <Icon name="ArrowRight" className="ml-2 group-hover:translate-x-1 transition-transform" />
+                    <span className="relative z-10 text-lg">Get Started Free Today</span>
+                    <Icon name="ArrowRight" className="ml-3 group-hover:translate-x-1 transition-transform duration-300" size={22} />
                   </Button>
                 </motion.div>
                 
@@ -135,9 +135,9 @@ const CTASection = () => {
                     variant="outline" 
                     size="xl"
                     onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="border-white/30 text-white hover:bg-white/10 font-semibold px-8 py-4"
+                    className="border-2 border-white/50 text-white hover:bg-white/20 font-semibold px-8 py-4 rounded-xl transition-all duration-300"
                   >
-                    <Icon name="Play" className="mr-2" />
+                    <Icon name="Play" className="mr-2" size={20} />
                     Watch Demo
                   </Button>
                 </motion.div>

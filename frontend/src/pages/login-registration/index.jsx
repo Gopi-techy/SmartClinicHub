@@ -7,6 +7,7 @@ import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
 import AuthHeader from './components/AuthHeader';
 import AuthFooter from './components/AuthFooter';
+import AuthFloatingElements from './components/AuthFloatingElements';
 
 const LoginRegistration = () => {
   const navigate = useNavigate();
@@ -74,9 +75,14 @@ const LoginRegistration = () => {
         <meta name="keywords" content="healthcare login, medical platform, patient portal, doctor access, admin dashboard" />
       </Helmet>
 
-      <div className="min-h-screen bg-background flex flex-col">
-        {/* Main Content */}
-        <div className="flex-1 flex items-center justify-center px-4 py-8">
+      <div className="min-h-screen bg-background flex">
+        {/* Left Side - Floating Animations */}
+        <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+          <AuthFloatingElements />
+        </div>
+        
+        {/* Right Side - Auth Forms */}
+        <div className="w-full lg:w-1/2 flex items-center justify-center px-4 py-8">
           <div className="w-full max-w-md">
             {/* Auth Header */}
             <AuthHeader />
@@ -106,16 +112,6 @@ const LoginRegistration = () => {
                     isLoading={isSubmitting}
                   />
                 )}
-              </div>
-            </div>
-            
-            {/* Demo Credentials Info */}
-            <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-border">
-              <h4 className="text-sm font-medium text-foreground mb-2">Demo Credentials:</h4>
-              <div className="space-y-1 text-xs text-muted-foreground">
-                <p><strong>Patient:</strong> patient@smartclinichub.com / patient123</p>
-                <p><strong>Doctor:</strong> doctor@smartclinichub.com / doctor123</p>
-                <p><strong>Admin:</strong> admin@smartclinichub.com / admin123</p>
               </div>
             </div>
             

@@ -140,25 +140,6 @@ npm run dev:frontend # Frontend on http://localhost:3000
 - **Backend API**: http://localhost:5000/api
 - **API Health Check**: http://localhost:5000/health
 
-## 👥 Demo Credentials
-
-Use these credentials to test different user roles:
-
-### Patient Access
-
-- **Email**: patient@smartclinichub.com
-- **Password**: patient123
-
-### Doctor Access
-
-- **Email**: doctor@smartclinichub.com
-- **Password**: doctor123
-
-### Admin Access
-
-- **Email**: admin@smartclinichub.com
-- **Password**: admin123
-
 ## 📁 Project Structure
 
 ```

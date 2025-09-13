@@ -26,16 +26,20 @@ const FeaturesSection = () => {
   const cardVariants = {
     hidden: { 
       opacity: 0, 
-      y: 50,
-      scale: 0.9 
+      y: 60,
+      scale: 0.85,
+      rotateX: -15
     },
     visible: {
       opacity: 1,
       y: 0,
       scale: 1,
+      rotateX: 0,
       transition: {
         duration: 0.8,
-        ease: "easeOut"
+        ease: "easeOut",
+        type: "spring",
+        stiffness: 100
       }
     }
   };
@@ -136,51 +140,46 @@ const FeaturesSection = () => {
             <motion.div
               key={index}
               variants={cardVariants}
-              whileHover={{ 
-                y: -10,
-                transition: { duration: 0.3, ease: "easeOut" }
-              }}
-              className={`group relative bg-card border ${feature.borderColor} rounded-xl p-8 shadow-healthcare hover:shadow-healthcare-lg transition-all duration-300 cursor-pointer`}
+              className="group relative bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow duration-200 cursor-pointer overflow-hidden h-full flex flex-col"
             >
-              {/* Background Decoration */}
-              <motion.div
-                className={`absolute top-0 right-0 w-32 h-32 ${feature.bgColor} rounded-full opacity-10 -translate-y-16 translate-x-16 group-hover:scale-125 transition-transform duration-500`}
+              {/* Background Gradient */}
+              <div
+                className={`absolute inset-0 bg-gradient-to-br ${feature.bgColor} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}
               />
               
-              <div className="relative z-10">
-                <motion.div
-                  whileHover={{ rotate: 360, scale: 1.1 }}
-                  transition={{ duration: 0.6 }}
-                  className={`${feature.bgColor} ${feature.color} w-16 h-16 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}
+              {/* Floating Background Elements - Static */}
+              <div
+                className={`absolute -top-4 -right-4 w-24 h-24 ${feature.bgColor} rounded-full opacity-20 group-hover:opacity-30 transition-opacity duration-300`}
+              />
+              
+              <div
+                className={`absolute -bottom-6 -left-6 w-20 h-20 ${feature.bgColor} rounded-full opacity-15 group-hover:opacity-25 transition-opacity duration-300`}
+              />
+              
+              <div className="relative z-10 flex flex-col h-full">
+                {/* Icon Container */}
+                <div
+                  className={`${feature.bgColor} ${feature.color} w-20 h-20 rounded-2xl flex items-center justify-center mb-6 shadow-lg group-hover:shadow-xl transition-shadow duration-200 relative`}
                 >
-                  <Icon name={feature.icon} size={28} />
-                </motion.div>
+                  <Icon name={feature.icon} size={32} />
+                </div>
 
-                <h3 className="text-xl font-bold text-foreground mb-4 group-hover:text-primary transition-colors duration-300">
+                {/* Title */}
+                <h3 
+                  className="text-2xl font-bold text-gray-900 mb-4 group-hover:text-primary transition-colors duration-200"
+                >
                   {feature.title}
                 </h3>
 
-                <p className="text-muted-foreground leading-relaxed">
+                {/* Description - Pushed to bottom */}
+                <p className="text-gray-600 leading-relaxed text-base mt-auto">
                   {feature.description}
                 </p>
-
-                {/* Hover Arrow */}
-                <motion.div
-                  initial={{ opacity: 0, x: -10 }}
-                  whileHover={{ opacity: 1, x: 0 }}
-                  className="flex items-center mt-4 text-primary font-medium"
-                >
-                  Learn More
-                  <Icon name="ArrowRight" className="ml-2" size={16} />
-                </motion.div>
               </div>
 
-              {/* Interactive Elements */}
-              <motion.div
-                className="absolute inset-0 border-2 border-primary rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                initial={false}
-                animate={{ scale: [1, 1.02, 1] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              {/* Hover Border Effect */}
+              <div
+                className="absolute inset-0 border-2 border-primary rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"
               />
             </motion.div>
           ))}

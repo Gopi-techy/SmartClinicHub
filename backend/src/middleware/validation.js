@@ -32,8 +32,8 @@ const validateUserRegistration = [
     }),
 
   body('phone')
-    .isMobilePhone('any')
-    .withMessage('Please provide a valid phone number')
+    .matches(/^[+]?[1-9]\d{1,14}$/)
+    .withMessage('Please provide a valid phone number (digits only, 2-15 characters)')
     .custom(async (phone) => {
       const existingUser = await User.findOne({ phone });
       if (existingUser) {
@@ -411,7 +411,7 @@ const validateDateRange = [
  */
 const validatePhoneNumber = [
   body('phone')
-    .isMobilePhone('any')
+    .matches(/^[+]?[1-9]\d{1,14}$/)
     .withMessage('Please provide a valid phone number')
 ];
 

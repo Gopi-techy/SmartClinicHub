@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const User = require('../models/User');
+const config = require('../config/config');
 
 /**
  * Generate JWT token
@@ -9,8 +10,8 @@ const User = require('../models/User');
  * @returns {string} JWT token
  */
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+  return jwt.sign({ id }, config.jwt.secret, {
+    expiresIn: config.jwt.expiresIn
   });
 };
 
@@ -206,7 +207,7 @@ const login = async (req, res) => {
 
     // Generate token
     const tokenExpiry = rememberMe ? '30d' : '1d';
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: user._id }, config.jwt.secret, {
       expiresIn: tokenExpiry
     });
 

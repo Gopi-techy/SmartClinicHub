@@ -32,139 +32,17 @@ const AdminDashboard = () => {
     return () => clearInterval(timer);
   }, [navigate, user, userRole]);
 
-  // Mock KPI data
-  const kpiData = [
-    {
-      title: 'Total Patients',
-      value: '2,847',
-      change: '+12%',
-      changeType: 'positive',
-      icon: 'Users',
-      color: 'blue'
-    },
-    {
-      title: 'Active Doctors',
-      value: '24',
-      change: '+3',
-      changeType: 'positive',
-      icon: 'Stethoscope',
-      color: 'green'
-    },
-    {
-      title: 'Today\'s Appointments',
-      value: '156',
-      change: '+8%',
-      changeType: 'positive',
-      icon: 'Calendar',
-      color: 'purple'
-    },
-    {
-      title: 'System Uptime',
-      value: '99.9%',
-      change: '+0.1%',
-      changeType: 'positive',
-      icon: 'Activity',
-      color: 'orange'
-    }
-  ];
+  // State for KPI data
+  const [kpiData, setKpiData] = useState([]);
 
-  // Mock analytics data
-  const analyticsData = {
-    appointments: {
-      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-      datasets: [
-        {
-          label: 'Appointments',
-          data: [120, 190, 300, 500, 200, 300],
-          borderColor: 'rgb(59, 130, 246)',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)'
-        }
-      ]
-    },
-    revenue: {
-      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-      datasets: [
-        {
-          label: 'Revenue',
-          data: [45000, 52000, 49000, 62000, 55000, 67000],
-          borderColor: 'rgb(34, 197, 94)',
-          backgroundColor: 'rgba(34, 197, 94, 0.1)'
-        }
-      ]
-    }
-  };
+  // State for analytics data
+  const [analyticsData, setAnalyticsData] = useState({});
 
-  // Mock user management data
-  const users = [
-    {
-      id: 'user-001',
-      name: 'John Doe',
-      email: 'john.doe@smartclinichub.com',
-      role: 'patient',
-      status: 'active',
-      lastLogin: '2025-01-20 14:30',
-      joinDate: '2024-03-15'
-    },
-    {
-      id: 'user-002',
-      name: 'Dr. Sarah Johnson',
-      email: 'sarah.johnson@smartclinichub.com',
-      role: 'doctor',
-      status: 'active',
-      lastLogin: '2025-01-20 16:45',
-      joinDate: '2024-01-10'
-    },
-    {
-      id: 'user-003',
-      name: 'Mike Wilson',
-      email: 'mike.wilson@smartclinichub.com',
-      role: 'patient',
-      status: 'inactive',
-      lastLogin: '2025-01-15 09:20',
-      joinDate: '2024-06-22'
-    },
-    {
-      id: 'user-004',
-      name: 'Dr. Emily Chen',
-      email: 'emily.chen@smartclinichub.com',
-      role: 'doctor',
-      status: 'active',
-      lastLogin: '2025-01-20 11:15',
-      joinDate: '2024-02-28'
-    }
-  ];
+  // State for user management data
+  const [users, setUsers] = useState([]);
 
-  // Mock recent activities
-  const recentActivities = [
-    {
-      id: 'act-001',
-      type: 'user_registration',
-      description: 'New patient registered: John Smith',
-      timestamp: '2025-01-20 17:30',
-      severity: 'info'
-    },
-    {
-      id: 'act-002',
-      type: 'system_alert',
-      description: 'High CPU usage detected on server-01',
-      timestamp: '2025-01-20 16:45',
-      severity: 'warning'
-    },
-    {
-      id: 'act-003',
-      type: 'appointment_created',
-      description: 'Emergency appointment scheduled for Patient ID: P-8472',
-      timestamp: '2025-01-20 15:20',
-      severity: 'critical'
-    },
-    {
-      id: 'act-004',
-      type: 'user_login',
-      description: 'Dr. Johnson logged in from new device',
-      timestamp: '2025-01-20 14:10',
-      severity: 'info'
-    }
-  ];
+  // State for recent activities
+  const [recentActivities, setRecentActivities] = useState([]);
 
   const handleUserAction = (action, userId) => {
     console.log(`${action} user:`, userId);

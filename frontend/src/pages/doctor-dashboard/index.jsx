@@ -33,89 +33,11 @@ const DoctorDashboard = () => {
     return () => clearInterval(timer);
   }, [navigate, user, userRole]);
 
-  // Mock data for today's schedule
-  const todaySchedule = [
-    {
-      id: 'apt-001',
-      patientName: 'John Doe',
-      time: '09:00 AM',
-      duration: 30,
-      type: 'Follow-up',
-      status: 'confirmed',
-      notes: 'Blood pressure check and medication review'
-    },
-    {
-      id: 'apt-002',
-      patientName: 'Jane Smith',
-      time: '10:30 AM',
-      duration: 45,
-      type: 'New Patient',
-      status: 'confirmed',
-      notes: 'Initial consultation for chest pain'
-    },
-    {
-      id: 'apt-003',
-      patientName: 'Mike Johnson',
-      time: '02:00 PM',
-      duration: 30,
-      type: 'Emergency',
-      status: 'pending',
-      notes: 'Urgent consultation required'
-    },
-    {
-      id: 'apt-004',
-      patientName: 'Sarah Wilson',
-      time: '03:30 PM',
-      duration: 60,
-      type: 'Procedure',
-      status: 'confirmed',
-      notes: 'ECG and stress test'
-    }
-  ];
+  // State for today's schedule
+  const [todaySchedule, setTodaySchedule] = useState([]);
 
-  // Mock data for patient management
-  const patients = [
-    {
-      id: 'patient-001',
-      name: 'John Doe',
-      age: 45,
-      lastVisit: '2025-01-15',
-      nextAppointment: '2025-01-22',
-      status: 'active',
-      priority: 'high',
-      conditions: ['Hypertension', 'Diabetes']
-    },
-    {
-      id: 'patient-002',
-      name: 'Jane Smith',
-      age: 32,
-      lastVisit: '2025-01-18',
-      nextAppointment: '2025-02-01',
-      status: 'active',
-      priority: 'medium',
-      conditions: ['Asthma']
-    },
-    {
-      id: 'patient-003',
-      name: 'Mike Johnson',
-      age: 58,
-      lastVisit: '2025-01-20',
-      nextAppointment: null,
-      status: 'follow-up',
-      priority: 'high',
-      conditions: ['Heart Disease', 'High Cholesterol']
-    },
-    {
-      id: 'patient-004',
-      name: 'Sarah Wilson',
-      age: 28,
-      lastVisit: '2025-01-10',
-      nextAppointment: '2025-01-25',
-      status: 'active',
-      priority: 'low',
-      conditions: ['Anxiety']
-    }
-  ];
+  // State for patient management
+  const [patients, setPatients] = useState([]);
 
   const handlePatientSelect = (patient) => {
     setSelectedPatient(patient);

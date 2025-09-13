@@ -79,9 +79,10 @@ const HeroSection = () => {
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="text-center lg:text-left space-y-8"
+          className="text-center lg:text-left space-y-8 pt-0"
         >
-          <motion.div variants={itemVariants} className="space-y-4">
+          {/* Top Section - Badge and Title */}
+          <motion.div variants={itemVariants} className="space-y-16">
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
@@ -93,79 +94,89 @@ const HeroSection = () => {
               </div>
             </motion.div>
             
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
-              <span className="block">{typewriterText}</span>
-              <motion.span
-                animate={{ opacity: [1, 0, 1] }}
-                transition={{ duration: 1, repeat: Infinity }}
-                className="inline-block w-1 h-12 bg-primary ml-1"
-              />
-            </h1>
-          </motion.div>
-
-          <motion.p 
-            variants={itemVariants}
-            className="text-xl text-muted-foreground max-w-xl mx-auto lg:mx-0"
-          >
-            Connect with healthcare professionals, manage your health records, 
-            and book appointments seamlessly in our revolutionary digital platform.
-          </motion.p>
-
-          <motion.div 
-            variants={itemVariants}
-            className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
-          >
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Button 
-                size="xl" 
-                onClick={() => navigate('/login-registration')}
-                className="group relative overflow-hidden"
-              >
-                <motion.div
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute inset-0 bg-white/20 rounded-md"
+            <div className="h-32 md:h-36 lg:h-40 flex items-center">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
+                <span className="block">{typewriterText}</span>
+                <motion.span
+                  animate={{ opacity: [1, 0, 1] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                  className="inline-block w-1 h-12 bg-primary ml-1"
                 />
-                Get Started Today
-                <Icon name="ArrowRight" className="ml-2 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </motion.div>
-            
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Button 
-                variant="outline" 
-                size="xl"
-                onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-              >
-                <Icon name="Play" className="mr-2" />
-                Learn More
-              </Button>
-            </motion.div>
+              </h1>
+            </div>
           </motion.div>
 
-          <motion.div 
-            variants={itemVariants}
-            className="flex items-center justify-center lg:justify-start gap-8 pt-8"
-          >
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">10K+</div>
-              <div className="text-sm text-muted-foreground">Patients</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">500+</div>
-              <div className="text-sm text-muted-foreground">Doctors</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">99%</div>
-              <div className="text-sm text-muted-foreground">Satisfaction</div>
-            </div>
-          </motion.div>
+          {/* Bottom Section - All Other Elements */}
+          <div className="space-y-8 pt-12">
+            {/* Description */}
+            <motion.div 
+              variants={itemVariants}
+            >
+              <div className="text-xl text-muted-foreground max-w-xl mx-auto lg:mx-0 text-center lg:text-left">
+                Connect with healthcare professionals, manage your health records, 
+                and book appointments seamlessly in our revolutionary digital platform.
+              </div>
+            </motion.div>
+
+            {/* Buttons */}
+            <motion.div 
+              variants={itemVariants}
+              className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
+            >
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Button 
+                  size="xl" 
+                  onClick={() => navigate('/login-registration')}
+                  className="group relative overflow-hidden bg-primary hover:bg-primary/90 text-white font-semibold px-8 py-4 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <motion.div
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute inset-0 bg-white/10 rounded-lg"
+                  />
+                  <span className="relative z-10">Get Started Today</span>
+                  <Icon name="ArrowRight" className="ml-2 group-hover:translate-x-1 transition-transform duration-300" size={20} />
+                </Button>
+              </motion.div>
+              
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Button 
+                  variant="outline" 
+                  size="xl"
+                  onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="border-2 border-primary text-primary hover:bg-primary hover:text-white font-semibold px-8 py-4 rounded-lg transition-all duration-300"
+                >
+                  <Icon name="Play" className="mr-2" size={20} />
+                  Learn More
+                </Button>
+              </motion.div>
+            </motion.div>
+
+            {/* Stats */}
+            <motion.div 
+              variants={itemVariants}
+              className="flex items-center justify-center lg:justify-start gap-8 pt-4"
+            >
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">10K+</div>
+                <div className="text-sm text-muted-foreground">Patients</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">500+</div>
+                <div className="text-sm text-muted-foreground">Doctors</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">99%</div>
+                <div className="text-sm text-muted-foreground">Satisfaction</div>
+              </div>
+            </motion.div>
+          </div>
         </motion.div>
 
         {/* Visual Elements */}

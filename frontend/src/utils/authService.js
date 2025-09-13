@@ -1,234 +1,231 @@
-// AuthService for Express Backend Integration
-import axios from 'axios';
+// Auth service for SmartClinicHub backend integration
+const API_BASE_URL = 'http://localhost:5000/api';
 
-const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Mock credentials for development
-const mockCredentials = {
-  patient: { email: 'patient@smartclinichub.com', password: 'patient123' },
-  doctor: { email: 'doctor@smartclinichub.com', password: 'doctor123' },
-  admin: { email: 'admin@smartclinichub.com', password: 'admin123' }
-};
-
-// Mock user data
-const mockUsers = {
-  patient: {
-    id: 'patient_001',
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'patient@smartclinichub.com',
-    role: 'patient',
-    phone: '+1-555-0123',
-    isEmailVerified: true
-  },
-  doctor: {
-    id: 'doctor_001',
-    firstName: 'Sarah',
-    lastName: 'Johnson',
-    email: 'doctor@smartclinichub.com',
-    role: 'doctor',
-    phone: '+1-555-0456',
-    specialization: 'Cardiology',
-    isEmailVerified: true
-  },
-  admin: {
-    id: 'admin_001',
-    firstName: 'Admin',
-    lastName: 'User',
-    email: 'admin@smartclinichub.com',
-    role: 'admin',
-    phone: '+1-555-0789',
-    isEmailVerified: true
-  }
-};
-
-const authService = {
-  async signIn(email, password) {
-    try {
-      // Check if we should use mock authentication
-      const useMock = process.env.NODE_ENV === 'development' || !process.env.REACT_APP_API_URL;
-      
-      if (useMock) {
-        // Mock authentication
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
-        
-        // Check against mock credentials
-        let userRole = null;
-        let isValidCredential = false;
-
-        Object.entries(mockCredentials).forEach(([role, credentials]) => {
-          if (email === credentials.email && password === credentials.password) {
-            userRole = role;
-            isValidCredential = true;
-          }
+function createAuthService() {
+  return {
+    async signIn(email, password) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
         });
 
-        if (!isValidCredential) {
-          throw new Error('Invalid email or password. Please use the provided demo credentials.');
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          return {
+            success: true,
+            token: data.token,
+            user: data.user
+          };
+        } else {
+          throw new Error(data.message || 'Login failed');
         }
-
-        const mockToken = `jwt_token_${userRole}_${Date.now()}`;
-        const user = mockUsers[userRole];
-
+      } catch (error) {
+        console.error('SignIn error:', error);
         return {
-          success: true,
-          message: 'Login successful',
-          token: mockToken,
-          user
+          success: false,
+          message: error.message || 'Network error during login'
         };
-      } else {
-        // Real API call
-        const response = await api.post('/auth/login', { email, password });
-        return response.data;
       }
-    } catch (error) {
-      if (error.response) {
-        throw new Error(error.response.data.message || 'Login failed');
-      } else if (error.message) {
-        throw error;
-      } else {
-        throw new Error('Network error. Please check your connection.');
-      }
-    }
-  },
+    },
 
-  async signUp(email, password, userData = {}) {
-    try {
-      const useMock = process.env.NODE_ENV === 'development' || !process.env.REACT_APP_API_URL;
-      
-      if (useMock) {
-        // Mock registration
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        // Check if email already exists in mock users
-        const existingUser = Object.values(mockUsers).find(user => user.email === email);
-        if (existingUser) {
-          throw new Error('User already exists with this email');
-        }
-
-        const role = userData.role || 'patient';
-        const mockToken = `jwt_token_${role}_${Date.now()}`;
-        
-        const newUser = {
-          id: `${role}_${Date.now()}`,
-          firstName: userData.firstName || 'New',
-          lastName: userData.lastName || 'User',
+    async signUp(email, password, userData = {}) {
+      try {
+        const registrationData = {
+          firstName: userData.firstName,
+          lastName: userData.lastName,
           email,
-          role,
-          phone: userData.phone || '',
-          isEmailVerified: false
+          password,
+          phone: userData.phone,
+          role: userData.role || 'patient',
+          dateOfBirth: userData.dateOfBirth || '1990-01-01',
+          gender: userData.gender || 'other'
         };
 
+        const response = await fetch(`${API_BASE_URL}/auth/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(registrationData),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          return {
+            success: true,
+            token: data.token,
+            user: data.user
+          };
+        } else {
+          // Handle validation errors with more detail
+          let errorMessage = data.message || 'Registration failed';
+          if (data.errors && Array.isArray(data.errors)) {
+            errorMessage = data.errors.map(err => err.message).join(', ');
+          }
+          throw new Error(errorMessage);
+        }
+      } catch (error) {
+        console.error('SignUp error:', error);
         return {
-          success: true,
-          message: 'Registration successful',
-          token: mockToken,
-          user: newUser
+          success: false,
+          message: error.message || 'Network error during registration'
         };
-      } else {
-        // Real API call
-        const response = await api.post('/auth/register', { email, password, ...userData });
-        return response.data;
       }
-    } catch (error) {
-      if (error.response) {
-        throw new Error(error.response.data.message || 'Registration failed');
-      } else if (error.message) {
-        throw error;
-      } else {
-        throw new Error('Network error. Please check your connection.');
-      }
-    }
-  },
+    },
 
-  async signOut() {
-    try {
-      const useMock = process.env.NODE_ENV === 'development' || !process.env.REACT_APP_API_URL;
-      
-      if (!useMock) {
-        await api.post('/auth/logout');
-      }
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Logout error:', error);
-      return { success: true }; // Always return success for logout
-    }
-  },
-
-  async getSession() {
-    try {
-      const useMock = process.env.NODE_ENV === 'development' || !process.env.REACT_APP_API_URL;
-      
-      if (useMock) {
+    async signOut() {
+      try {
         const token = localStorage.getItem('authToken');
-        const userRole = localStorage.getItem('userRole');
         
-        if (!token || !userRole) {
-          throw new Error('No active session');
+        if (token) {
+          await fetch(`${API_BASE_URL}/auth/logout`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
         }
         
-        return {
-          success: true,
-          data: { user: mockUsers[userRole] }
-        };
-      } else {
-        const response = await api.get('/auth/me');
-        return response.data;
+        localStorage.removeItem('authToken');
+        return { success: true };
+      } catch (error) {
+        console.error('SignOut error:', error);
+        localStorage.removeItem('authToken');
+        return { success: true }; // Still consider it successful if token is removed
       }
-    } catch (error) {
-      throw new Error('Failed to get session');
-    }
-  },
+    },
 
-  async getUserProfile(userId) {
-    try {
-      const response = await api.get(`/users/${userId}/profile`);
-      return response.data;
-    } catch (error) {
-      throw new Error('Failed to get user profile');
-    }
-  },
+    async getSession() {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          return { success: false, error: 'No authentication token found' };
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
-  async updateProfile(userId, updates) {
-    try {
-      const response = await api.put(`/users/${userId}/profile`, updates);
-      return response.data;
-    } catch (error) {
-      throw new Error('Failed to update profile');
-    }
-  },
+        const data = await response.json();
 
-  async resetPassword(email) {
-    try {
-      const response = await api.post('/auth/reset-password', { email });
-      return response.data;
-    } catch (error) {
-      throw new Error('Failed to reset password');
-    }
-  },
+        if (response.ok && data.success) {
+          return {
+            success: true,
+            user: data.data.user
+          };
+        } else {
+          throw new Error(data.message || 'Session validation failed');
+        }
+      } catch (error) {
+        console.error('GetSession error:', error);
+        return {
+          success: false,
+          error: error.message || 'Network error during session check'
+        };
+      }
+    },
 
-  // Helper method to get mock credentials for demo
-  getMockCredentials() {
-    return mockCredentials;
-  }
-};
+    async getUserProfile(userId) {
+      try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          return {
+            success: true,
+            data: data.data
+          };
+        } else {
+          throw new Error(data.message || 'Failed to fetch user profile');
+        }
+      } catch (error) {
+        console.error('GetUserProfile error:', error);
+        return {
+          success: false,
+          message: error.message || 'Network error during profile fetch'
+        };
+      }
+    },
+
+    async updateProfile(userId, updates) {
+      try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updates),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          return {
+            success: true,
+            data: data.data
+          };
+        } else {
+          throw new Error(data.message || 'Failed to update profile');
+        }
+      } catch (error) {
+        console.error('UpdateProfile error:', error);
+        return {
+          success: false,
+          message: error.message || 'Network error during profile update'
+        };
+      }
+    },
+
+    async resetPassword(email) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          return {
+            success: true,
+            message: data.message || 'Password reset email sent'
+          };
+        } else {
+          throw new Error(data.message || 'Password reset failed');
+        }
+      } catch (error) {
+        console.error('ResetPassword error:', error);
+        return {
+          success: false,
+          message: error.message || 'Network error during password reset'
+        };
+      }
+    }
+  };
+}
+
+const authService = createAuthService();
 
 export default authService;

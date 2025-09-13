@@ -42,149 +42,29 @@ const PatientDashboard = () => {
     return () => clearInterval(timer);
   }, [navigate, user, userRole]);
 
-  // Mock data for upcoming appointment
-  const upcomingAppointment = {
-    id: "APT-2025-001",
-    doctor: "Dr. Sarah Johnson",
-    location: "City Medical Center - Room 205",
-    date: "January 22, 2025",
-    time: "10:30 AM",
-    type: "General Checkup",
-    status: "confirmed",
-    notes: "Annual physical examination and health screening"
-  };
+  // State for upcoming appointment
+  const [upcomingAppointment, setUpcomingAppointment] = useState(null);
 
-  // Mock data for health metrics
-  const healthMetrics = [
-    {
-      type: "blood_pressure",
-      name: "Blood Pressure",
-      value: "120/80 mmHg",
-      status: "normal",
-      lastUpdated: "2 hours ago",
-      trend: "stable",
-      change: "No change"
-    },
-    {
-      type: "heart_rate",
-      name: "Heart Rate",
-      value: "72 bpm",
-      status: "normal",
-      lastUpdated: "2 hours ago",
-      trend: "down",
-      change: "-3 bpm"
-    },
-    {
-      type: "weight",
-      name: "Weight",
-      value: "165 lbs",
-      status: "normal",
-      lastUpdated: "1 week ago",
-      trend: "up",
-      change: "+2 lbs"
-    },
-    {
-      type: "blood_sugar",
-      name: "Blood Sugar",
-      value: "95 mg/dL",
-      status: "normal",
-      lastUpdated: "4 hours ago",
-      trend: "stable",
-      change: "Normal range"
-    },
-    {
-      type: "temperature",
-      name: "Temperature",
-      value: "98.6°F",
-      status: "normal",
-      lastUpdated: "6 hours ago",
-      trend: "stable",
-      change: "Normal"
-    }
-  ];
+  // State for health metrics
+  const [healthMetrics, setHealthMetrics] = useState([]);
 
-  // Mock data for prescriptions
-  const prescriptions = [
-    {
-      medication: "Lisinopril 10mg",
-      dosage: "10mg",
-      frequency: "Once daily",
-      status: "active",
-      prescribedDate: "Dec 15, 2024",
-      refillsLeft: "2",
-      nextDose: "Tomorrow 8:00 AM"
-    },
-    {
-      medication: "Metformin 500mg",
-      dosage: "500mg",
-      frequency: "Twice daily",
-      status: "refill_needed",
-      prescribedDate: "Nov 20, 2024",
-      refillsLeft: "0",
-      nextDose: "Today 6:00 PM"
-    },
-    {
-      medication: "Vitamin D3 1000IU",
-      dosage: "1000IU",
-      frequency: "Once daily",
-      status: "active",
-      prescribedDate: "Jan 10, 2025",
-      refillsLeft: "5",
-      nextDose: "Tomorrow 9:00 AM"
-    }
-  ];
+  // State for prescriptions
+  const [prescriptions, setPrescriptions] = useState([]);
 
-  // Mock data for recent activities
-  const recentActivities = [
-    {
-      type: "appointment",
-      title: "Appointment Confirmed",
-      description: "Your appointment with Dr. Sarah Johnson has been confirmed for January 22, 2025 at 10:30 AM",
-      timestamp: new Date(Date.now() - 1800000), // 30 minutes ago
-      status: "confirmed",
-      actionable: true
-    },
-    {
-      type: "prescription",
-      title: "Prescription Refill Reminder",
-      description: "Metformin 500mg refill is due soon. Contact your pharmacy to request a refill.",
-      timestamp: new Date(Date.now() - 7200000), // 2 hours ago
-      status: "action_needed",
-      actionable: true
-    },
-    {
-      type: "test_result",
-      title: "Lab Results Available",
-      description: "Your blood work results from January 18, 2025 are now available for review.",
-      timestamp: new Date(Date.now() - 86400000), // 1 day ago
-      status: "new",
-      actionable: true
-    },
-    {
-      type: "document",
-      title: "Insurance Card Updated",
-      description: "Your insurance information has been successfully updated in our system.",
-      timestamp: new Date(Date.now() - 172800000), // 2 days ago
-      status: "completed",
-      actionable: false
-    },
-    {
-      type: "payment",
-      title: "Payment Processed",
-      description: "Payment of $45.00 for your December 20, 2024 visit has been processed.",
-      timestamp: new Date(Date.now() - 259200000), // 3 days ago
-      status: "completed",
-      actionable: false
-    }
-  ];
+  // State for recent activities
+  const [recentActivities, setRecentActivities] = useState([]);
 
   const handleRescheduleAppointment = (appointmentId) => {
     navigate('/appointment-booking', { state: { reschedule: appointmentId } });
   };
 
-  const handleCancelAppointment = (appointmentId) => {
-    // Mock cancel functionality
-    console.log('Cancelling appointment:', appointmentId);
+  const handleCancelAppointment = async (appointmentId) => {
+    try {
+      // TODO: Implement real API call to cancel appointment
+      console.log('Cancelling appointment:', appointmentId);
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+    }
   };
 
   const toggleDarkMode = () => {

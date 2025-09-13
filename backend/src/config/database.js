@@ -13,9 +13,9 @@ const connectDatabase = async () => {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
-      bufferMaxEntries: 0,
       bufferCommands: false,
       autoIndex: config.env === 'development', // Build indexes in development
+      family: 4, // Use IPv4, skip trying IPv6
     });
 
     logger.info(`MongoDB Connected: ${conn.connection.host}`);
@@ -97,68 +97,11 @@ const initializeDatabase = async () => {
     const User = require('../models/User');
     const userCount = await User.countDocuments();
     
-    if (userCount === 0) {
-      logger.info('Database is empty, initializing with default data...');
-      
-      // Create default admin user
-      const adminUser = new User({
-        firstName: 'Admin',
-        lastName: 'User',
-        email: 'admin@smartclinichub.com',
-        password: 'admin123',
-        role: 'admin',
-        phone: '+1-555-0000',
-        isEmailVerified: true,
-        isActive: true
-      });
-      
-      await adminUser.save();
-      logger.info('Default admin user created');
-      
-      // Create default doctor
-      const doctorUser = new User({
-        firstName: 'Sarah',
-        lastName: 'Johnson',
-        email: 'doctor@smartclinichub.com',
-        password: 'doctor123',
-        role: 'doctor',
-        phone: '+1-555-0001',
-        isEmailVerified: true,
-        isActive: true,
-        professionalInfo: {
-          specialization: 'Cardiology',
-          license: 'MD123456',
-          yearsOfExperience: 8
-        }
-      });
-      
-      await doctorUser.save();
-      logger.info('Default doctor user created');
-      
-      // Create default patient
-      const patientUser = new User({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'patient@smartclinichub.com',
-        password: 'patient123',
-        role: 'patient',
-        phone: '+1-555-0002',
-        isEmailVerified: true,
-        isActive: true,
-        emergencyContact: {
-          name: 'Jane Doe',
-          relationship: 'Spouse',
-          phone: '+1-555-0003'
-        }
-      });
-      
-      await patientUser.save();
-      logger.info('Default patient user created');
-      
-      logger.info('Database initialization completed');
-    } else {
-      logger.info(`Database already contains ${userCount} users, skipping initialization`);
-    }
+    logger.info(`Database contains ${userCount} users`);
+    
+    // Database initialization completed - no demo data created
+    logger.info('Database initialization completed - ready for production use');
+    
   } catch (error) {
     logger.error('Database initialization failed:', error);
   }

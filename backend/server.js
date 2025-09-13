@@ -24,6 +24,7 @@ const aiRoutes = require('./src/routes/ai');
 const pharmacyRoutes = require('./src/routes/pharmacy');
 const adminRoutes = require('./src/routes/admin');
 const healthRoutes = require('./src/routes/health');
+const patientDashboardRoutes = require('./src/routes/patient-dashboard');
 
 // Create Express application
 const app = express();
@@ -52,7 +53,8 @@ const corsOptions = {
     const allowedOrigins = [
       process.env.FRONTEND_URL,
       'http://localhost:3000',
-      'http://localhost:3001'
+      'http://localhost:3001',
+      'http://localhost:4028'
     ];
     
     if (!origin || allowedOrigins.includes(origin)) {
@@ -129,6 +131,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/health', healthRoutes);
+app.use('/api/patient-dashboard', patientDashboardRoutes);
 
 // Handle undefined routes
 app.use(notFound);
@@ -140,7 +143,12 @@ app.use(errorHandler);
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: [
+      process.env.FRONTEND_URL || "http://localhost:3000",
+      "http://localhost:3000",
+      "http://localhost:3001", 
+      "http://localhost:4028"
+    ],
     methods: ["GET", "POST"]
   }
 });
