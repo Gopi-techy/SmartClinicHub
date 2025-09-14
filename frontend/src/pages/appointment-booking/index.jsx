@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import RoleBasedHeader from '../../components/ui/RoleBasedHeader';
@@ -228,8 +229,15 @@ const AppointmentBooking = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <RoleBasedHeader />
+    <>
+      <Helmet>
+        <title>Book Appointment - SmartClinicHub</title>
+        <meta name="description" content="Book appointments with healthcare providers at SmartClinicHub. Choose from available doctors, select appointment times, and manage your healthcare schedule." />
+        <meta name="keywords" content="book appointment, healthcare providers, doctor booking, medical appointment, clinic scheduling" />
+      </Helmet>
+
+      <div className="min-h-screen bg-background">
+        <RoleBasedHeader />
       
       {userRole === 'patient' && <PatientBottomTabs />}
       {userRole === 'patient' && <PatientSidebar />}
@@ -416,6 +424,7 @@ const AppointmentBooking = () => {
         </div>
       </main>
     </div>
+    </>
   );
 };
 

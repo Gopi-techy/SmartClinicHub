@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../../contexts/AuthContext';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 
 
 const PatientNotesPanel = ({ selectedPatient, notes, onAddNote, onUpdateNote }) => {
+  const { user } = useAuth();
   const [newNote, setNewNote] = useState('');
   const [noteType, setNoteType] = useState('general');
   const [isAddingNote, setIsAddingNote] = useState(false);
@@ -25,7 +27,7 @@ const PatientNotesPanel = ({ selectedPatient, notes, onAddNote, onUpdateNote }) 
         type: noteType,
         content: newNote.trim(),
         timestamp: new Date().toISOString(),
-        author: 'Dr. Smith'
+        author: user ? (user.role === 'doctor' ? `Dr. ${user.lastName}` : `${user.firstName} ${user.lastName}`) : 'Provider'
       };
       onAddNote(note);
       setNewNote('');

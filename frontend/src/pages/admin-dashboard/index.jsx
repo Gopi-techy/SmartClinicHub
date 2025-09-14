@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet';
 import { useAuth } from '../../contexts/AuthContext';
 import RoleBasedHeader from '../../components/ui/RoleBasedHeader';
 import AnalyticsChart from './components/AnalyticsChart';
@@ -64,8 +65,15 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <RoleBasedHeader />
+    <>
+      <Helmet>
+        <title>Admin Dashboard - SmartClinicHub</title>
+        <meta name="description" content="Administrator dashboard for SmartClinicHub - manage users, view analytics, system monitoring, and overall clinic administration." />
+        <meta name="keywords" content="admin dashboard, healthcare administration, user management, system analytics, clinic management, healthcare analytics" />
+      </Helmet>
+
+      <div className="min-h-screen bg-background">
+        <RoleBasedHeader />
       
       {/* Main Content */}
       <div className="pt-16">
@@ -183,6 +191,7 @@ const AdminDashboard = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

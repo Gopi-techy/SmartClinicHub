@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
@@ -8,7 +8,7 @@ import { Checkbox } from '../../../components/ui/Checkbox';
 
 
 const RegisterForm = ({ onSubmit, isLoading, error }) => {
-  const { signUp } = useAuth();
+  const { signUp, clearError } = useAuth();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -25,6 +25,25 @@ const RegisterForm = ({ onSubmit, isLoading, error }) => {
   const [passwordStrength, setPasswordStrength] = useState('');
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
+  const [localError, setLocalError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Add effect to prevent any form submission
+  useEffect(() => {
+    const handleFormSubmit = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('RegisterForm: Global form submit prevented');
+      return false;
+    };
+
+    // Add event listener to the current form
+    const form = document.querySelector('form[action="javascript:void(0)"]');
+    if (form) {
+      form.addEventListener('submit', handleFormSubmit, true);
+      return () => form.removeEventListener('submit', handleFormSubmit, true);
+    }
+  }, []);
 
   const roleOptions = [
     { value: 'patient', label: 'Patient', description: 'Book appointments and manage health records' },
@@ -52,6 +71,14 @@ const RegisterForm = ({ onSubmit, isLoading, error }) => {
         ...prev,
         [name]: ''
       }));
+    }
+    
+    // Clear any error messages when user starts typing
+    if (localError) {
+      setLocalError(null);
+    }
+    if (error) {
+      clearError();
     }
   };
 
@@ -142,35 +169,69 @@ const RegisterForm = ({ onSubmit, isLoading, error }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
     
-    if (!validateForm()) return;
+    // Prevent any form submission
+    if (e.defaultPrevented === false) {
+      e.preventDefault();
+    }
+    
+    console.log('RegisterForm: Form submit handler called');
+    
+    // Clear any previous errors
+    setLocalError(null);
+    if (error) {
+      clearError();
+    }
+    
+    if (!validateForm()) {
+      console.log('RegisterForm: Validation failed, stopping submission');
+      return false;
+    }
+
+    setIsSubmitting(true);
 
     try {
       // Prepare complete registration data
       const registrationData = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
         password: formData.password,
-        phone: formData.phone,
+        phone: formData.phone.trim(),
         role: formData.role,
         dateOfBirth: formData.dateOfBirth || '1990-01-01',
         gender: formData.gender || 'other'
       };
       
-      console.log('Registration data being sent:', registrationData);
+      console.log('RegisterForm: Registration data being sent:', registrationData);
       
-      // Call signUp with the complete userData object
-      const result = await signUp(registrationData);
-      
-      if (result?.success) {
-        // Registration successful - will be handled by AuthContext
-        console.log('Registration successful');
-        return;
+      try {
+        // Call the parent onSubmit handler
+        const result = await onSubmit(registrationData);
+        console.log('RegisterForm: Received result:', result);
+        
+        // If there was an error but no exception was thrown, handle it
+        if (result && !result.success) {
+          console.log('RegisterForm: Setting local error:', result.error);
+          setLocalError(result.error || 'Registration failed. Please try again.');
+          return; // Exit early to prevent any further processing
+        } else if (result && result.success) {
+          console.log('RegisterForm: Registration was successful');
+          // Don't clear the form or do anything that might cause a reload
+          return;
+        }
+      } catch (innerError) {
+        console.error('RegisterForm: Inner registration error:', innerError);
+        setLocalError(innerError.message || 'Registration failed. Please try again.');
+        return; // Exit early
       }
+      
     } catch (error) {
-      console.error('Registration error:', error);
-      // Error will be shown by AuthContext via state.error
+      console.error('RegisterForm: Outer registration error:', error);
+      setLocalError(error.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -187,10 +248,23 @@ const RegisterForm = ({ onSubmit, isLoading, error }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
-        <div className="bg-error/10 border border-error/20 text-error px-4 py-3 rounded-lg text-sm">
-          {error}
+    <form 
+      onSubmit={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('RegisterForm: Form onSubmit called, preventing default');
+        return false;
+      }} 
+      className="space-y-4" 
+      noValidate
+      action="javascript:void(0)"
+    >
+      {(error || localError) && (
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm">
+          <div className="flex items-center space-x-2">
+            <Icon name="AlertCircle" size={16} />
+            <span>{error || localError}</span>
+          </div>
         </div>
       )}
       
@@ -303,13 +377,24 @@ const RegisterForm = ({ onSubmit, isLoading, error }) => {
       />
       
       <Button
-        type="submit"
+        type="button"
         variant="default"
         fullWidth
-        loading={isLoading}
+        loading={isLoading || isSubmitting}
+        disabled={isLoading || isSubmitting}
         className="mt-6"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (isLoading || isSubmitting) {
+            console.log('RegisterForm: Button clicked but already loading/submitting');
+            return;
+          }
+          console.log('RegisterForm: Button clicked, calling handleSubmit');
+          handleSubmit(e);
+        }}
       >
-        Create Account
+        {isLoading || isSubmitting ? 'Creating Account...' : 'Create Account'}
       </Button>
       
       <div className="relative my-6">

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet';
 import { useAuth } from '../../contexts/AuthContext';
 import RoleBasedHeader from '../../components/ui/RoleBasedHeader';
 import ProviderSidebar from '../../components/ui/ProviderSidebar';
 import TodaySchedule from './components/TodaySchedule';
 import PatientManagementTable from './components/PatientManagementTable';
-import AvailabilityCalendar from './components/AvailabilityCalendar';
 import QuickActions from './components/QuickActions';
 import PatientNotesPanel from './components/PatientNotesPanel';
 import Icon from '../../components/AppIcon';
@@ -39,6 +39,78 @@ const DoctorDashboard = () => {
   // State for patient management
   const [patients, setPatients] = useState([]);
 
+  // Initialize with mock data
+  useEffect(() => {
+    if (user && userRole === 'doctor') {
+      // Mock today's schedule
+      setTodaySchedule([
+        {
+          id: 1,
+          time: '09:00 AM',
+          patientName: 'John Smith',
+          patientAge: 34,
+          appointmentType: 'Consultation',
+          status: 'confirmed',
+          priority: 'normal'
+        },
+        {
+          id: 2,
+          time: '10:30 AM',
+          patientName: 'Sarah Johnson',
+          patientAge: 28,
+          appointmentType: 'Follow-up',
+          status: 'confirmed',
+          priority: 'normal'
+        },
+        {
+          id: 3,
+          time: '02:00 PM',
+          patientName: 'Michael Brown',
+          patientAge: 45,
+          appointmentType: 'Emergency',
+          status: 'urgent',
+          priority: 'high'
+        }
+      ]);
+
+      // Mock patients
+      setPatients([
+        {
+          id: 1,
+          name: 'John Smith',
+          patientId: 'P001',
+          appointmentTime: '09:00 AM',
+          duration: 30,
+          reason: 'Hypertension Follow-up',
+          status: 'confirmed',
+          priority: 'normal'
+        },
+        {
+          id: 2,
+          name: 'Sarah Johnson',
+          patientId: 'P002',
+          appointmentTime: '10:30 AM',
+          duration: 45,
+          reason: 'Diabetes Consultation',
+          status: 'waiting',
+          priority: 'normal'
+        },
+        {
+          id: 3,
+          name: 'Michael Brown',
+          patientId: 'P003',
+          appointmentTime: '02:00 PM',
+          duration: 60,
+          reason: 'Chest Pain Emergency',
+          status: 'in-progress',
+          priority: 'high'
+        }
+      ]);
+
+
+    }
+  }, [user, userRole]);
+
   const handlePatientSelect = (patient) => {
     setSelectedPatient(patient);
     setIsNotesPanelOpen(true);
@@ -59,6 +131,13 @@ const DoctorDashboard = () => {
     console.log('Cancel appointment:', appointmentId);
   };
 
+  const handleScheduleAppointment = () => {
+    // Navigate to appointment scheduling
+    navigate('/appointment-booking');
+  };
+
+
+
   const getGreeting = () => {
     const hour = currentTime.getHours();
     if (hour < 12) return 'Good Morning';
@@ -71,9 +150,16 @@ const DoctorDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <RoleBasedHeader />
-      <ProviderSidebar />
+    <>
+      <Helmet>
+        <title>Doctor Dashboard - SmartClinicHub</title>
+        <meta name="description" content="Doctor dashboard for SmartClinicHub - manage patient appointments, view schedules, update availability, and handle patient care." />
+        <meta name="keywords" content="doctor dashboard, healthcare provider, patient management, appointments, medical practice, clinic management" />
+      </Helmet>
+
+      <div className="min-h-screen bg-background">
+        <RoleBasedHeader />
+        <ProviderSidebar />
       
       {/* Main Content */}
       <div className="pt-16 md:ml-64">
@@ -83,7 +169,7 @@ const DoctorDashboard = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
-                  {getGreeting()}, Dr. {user.lastName || 'Doctor'}!
+                  {getGreeting()}, Dr. {user.firstName || 'Doctor'}!
                 </h1>
                 <p className="text-muted-foreground">
                   {currentTime.toLocaleDateString('en-US', { 
@@ -119,31 +205,32 @@ const DoctorDashboard = () => {
           </div>
 
           {/* Dashboard Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
             {/* Left Column - Schedule and Patients */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-3 space-y-6">
               {/* Today's Schedule */}
               <TodaySchedule 
-                schedule={todaySchedule}
-                onStartAppointment={handleStartAppointment}
+                appointments={todaySchedule}
+                onAppointmentClick={handleStartAppointment}
                 onReschedule={handleRescheduleAppointment}
-                onCancel={handleCancelAppointment}
               />
 
               {/* Patient Management */}
               <PatientManagementTable 
                 patients={patients}
                 onPatientSelect={handlePatientSelect}
+                onCreatePrescription={(patient) => console.log('Create prescription for:', patient)}
               />
             </div>
 
             {/* Right Column - Sidebar */}
-            <div className="space-y-6">
+            <div className="lg:col-span-1 space-y-6">
               {/* Quick Actions */}
-              <QuickActions />
-
-              {/* Availability Calendar */}
-              <AvailabilityCalendar />
+              <QuickActions 
+                onScheduleAppointment={handleScheduleAppointment}
+                onCreatePrescription={(patient) => console.log('Create prescription for:', patient)}
+                onAccessEmergency={() => console.log('Access emergency')}
+              />
             </div>
           </div>
 
@@ -188,6 +275,7 @@ const DoctorDashboard = () => {
         />
       )}
     </div>
+    </>
   );
 };
 

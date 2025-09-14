@@ -17,10 +17,23 @@ const LoginRegistration = () => {
 
   useEffect(() => {
     // Check if user is already authenticated
-    if (isAuthenticated && userRole) {
-      navigate(`/${userRole}-dashboard`);
-    }
-  }, [isAuthenticated, userRole, navigate]);
+    // Only navigate if successfully authenticated and no errors
+    // Add a delay to ensure error state is properly set and avoid navigation during registration
+    const navigationTimeout = setTimeout(() => {
+      if (isAuthenticated && userRole && !error && !isLoading && !isSubmitting && activeTab !== 'register') {
+        console.log('Login page: Navigating to dashboard for role:', userRole);
+        navigate(`/${userRole}-dashboard`);
+      } else if (error) {
+        console.log('Login page: Not navigating due to error:', error);
+      } else if (isLoading || isSubmitting) {
+        console.log('Login page: Not navigating due to loading/submitting state');
+      } else if (activeTab === 'register') {
+        console.log('Login page: Not navigating while on register tab');
+      }
+    }, 200); // Increased delay
+
+    return () => clearTimeout(navigationTimeout);
+  }, [isAuthenticated, userRole, navigate, error, isLoading, isSubmitting, activeTab]);
 
   useEffect(() => {
     // Clear any existing errors when switching tabs
@@ -45,11 +58,20 @@ const LoginRegistration = () => {
   const handleRegister = async (formData) => {
     setIsSubmitting(true);
     try {
-      await register(formData);
-      // Navigation will be handled by the useEffect above
+      const result = await register(formData);
+      if (result && result.success) {
+        // Navigation will be handled by the useEffect above
+        console.log('Registration successful');
+        return { success: true };
+      } else {
+        // Return the error so the form can handle it
+        console.log('Registration failed:', result?.error);
+        return { success: false, error: result?.error || 'Registration failed' };
+      }
     } catch (err) {
-      // Error is handled by the AuthContext
+      // Error is handled by the AuthContext - don't rethrow
       console.error('Registration error:', err);
+      return { success: false, error: err.message || 'Registration failed' };
     } finally {
       setIsSubmitting(false);
     }
@@ -92,8 +114,8 @@ const LoginRegistration = () => {
               {/* Tab Navigation */}
               <AuthTabs activeTab={activeTab} onTabChange={setActiveTab} />
               
-              {/* Error Display */}
-              {error && (
+              {/* Error Display - Only show for login tab since RegisterForm handles its own errors */}
+              {error && activeTab === 'login' && (
                 <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                   <p className="text-sm text-destructive">{error}</p>
                 </div>
@@ -110,6 +132,7 @@ const LoginRegistration = () => {
                   <RegisterForm 
                     onSubmit={handleRegister}
                     isLoading={isSubmitting}
+                    error={activeTab === 'register' ? error : null}
                   />
                 )}
               </div>

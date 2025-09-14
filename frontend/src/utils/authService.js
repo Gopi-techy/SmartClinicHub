@@ -46,6 +46,9 @@ function createAuthService() {
           gender: userData.gender || 'other'
         };
 
+        console.log('AuthService: Making registration request to:', `${API_BASE_URL}/auth/register`);
+        console.log('AuthService: Registration data:', registrationData);
+
         const response = await fetch(`${API_BASE_URL}/auth/register`, {
           method: 'POST',
           headers: {
@@ -54,9 +57,12 @@ function createAuthService() {
           body: JSON.stringify(registrationData),
         });
 
+        console.log('AuthService: Response status:', response.status);
         const data = await response.json();
+        console.log('AuthService: Response data:', data);
 
         if (response.ok && data.success) {
+          console.log('AuthService: Registration successful');
           return {
             success: true,
             token: data.token,
@@ -65,16 +71,48 @@ function createAuthService() {
         } else {
           // Handle validation errors with more detail
           let errorMessage = data.message || 'Registration failed';
+          
+          // Handle specific error cases
           if (data.errors && Array.isArray(data.errors)) {
-            errorMessage = data.errors.map(err => err.message).join(', ');
+            errorMessage = data.errors.map(err => err.message || err.msg).join(', ');
+          } else if (data.error) {
+            errorMessage = data.error;
           }
-          throw new Error(errorMessage);
+          
+          // Check for common error cases
+          if (response.status === 409 || errorMessage.toLowerCase().includes('already exists') || errorMessage.toLowerCase().includes('already registered')) {
+            errorMessage = 'This email or phone number is already registered. Please try logging in instead.';
+          } else if (response.status === 400) {
+            errorMessage = errorMessage || 'Please check your information and try again.';
+          } else if (response.status === 429) {
+            errorMessage = data.message || 'Too many requests. Please wait a moment and try again.';
+          }
+          
+          console.log('AuthService: Registration failed with status:', response.status, 'message:', errorMessage);
+          
+          return {
+            success: false,
+            message: errorMessage
+          };
         }
       } catch (error) {
         console.error('SignUp error:', error);
+        
+        // Always return failure for any exception
+        let errorMessage = 'Registration failed. Please try again.';
+        
+        // Handle network errors
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+          errorMessage = 'Unable to connect to server. Please check your internet connection and try again.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        console.log('AuthService: Returning error:', errorMessage);
+        
         return {
           success: false,
-          message: error.message || 'Network error during registration'
+          message: errorMessage
         };
       }
     },

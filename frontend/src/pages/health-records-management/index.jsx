@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import RoleBasedHeader from '../../components/ui/RoleBasedHeader';
@@ -219,8 +220,15 @@ const HealthRecordsManagement = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <RoleBasedHeader />
+    <>
+      <Helmet>
+        <title>Health Records - SmartClinicHub</title>
+        <meta name="description" content="Manage your health records at SmartClinicHub. View medical history, upload documents, track prescriptions, and access your complete healthcare information." />
+        <meta name="keywords" content="health records, medical history, healthcare documents, prescriptions, medical files, patient records" />
+      </Helmet>
+
+      <div className="min-h-screen bg-background">
+        <RoleBasedHeader />
       
       {userRole === 'patient' && <PatientBottomTabs />}
       {userRole === 'patient' && <PatientSidebar />}
@@ -386,6 +394,7 @@ const HealthRecordsManagement = () => {
         onShare={handleShare}
       />
     </div>
+    </>
   );
 };
 

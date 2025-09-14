@@ -83,19 +83,21 @@ const AppointmentBookingWidget = () => {
       {/* Date Selection */}
       <div className="mb-6">
         <h4 className="text-sm font-medium text-foreground mb-3">Select Date</h4>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           {availableSlots.map((slot, index) => (
             <button
               key={index}
               onClick={() => handleDateSelect(slot.date)}
-              className={`p-3 rounded-lg border text-center transition-all duration-200 hover-scale ${
+              className={`flex-shrink-0 p-3 rounded-lg border text-center transition-all duration-200 hover-scale min-w-[80px] ${
                 selectedDate === slot.date
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border hover:border-primary/50 bg-background'
               }`}
             >
-              <div className="text-xs font-medium">{slot.displayDate}</div>
-              <div className="text-xs text-muted-foreground mt-1">
+              <div className="text-xs font-medium whitespace-nowrap">{slot.displayDate}</div>
+              <div className={`text-xs mt-1 whitespace-nowrap ${
+                selectedDate === slot.date ? 'text-primary-foreground/80' : 'text-muted-foreground'
+              }`}>
                 {slot.timeSlots.length} slots
               </div>
             </button>
@@ -128,7 +130,7 @@ const AppointmentBookingWidget = () => {
       )}
 
       {/* Booking Actions */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Button
           variant={selectedDate && selectedTime ? "default" : "outline"}
           size="sm"
@@ -136,7 +138,7 @@ const AppointmentBookingWidget = () => {
           iconPosition="left"
           onClick={handleBookAppointment}
           disabled={!selectedDate || !selectedTime}
-          className="flex-1"
+          className="w-full h-10 flex items-center justify-center"
         >
           {selectedDate && selectedTime ? 'Book Appointment' : 'Select Date & Time'}
         </Button>
@@ -145,7 +147,7 @@ const AppointmentBookingWidget = () => {
           size="sm"
           iconName="Video"
           iconPosition="left"
-          className="flex-1"
+          className="w-full h-10 flex items-center justify-center"
         >
           Virtual Visit
         </Button>

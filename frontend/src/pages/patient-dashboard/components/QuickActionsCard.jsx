@@ -53,20 +53,20 @@ const QuickActionsCard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
         {quickActions.map((action) => (
           <button
             key={action.id}
             onClick={action.action}
-            className="group p-4 rounded-lg border border-border hover:border-primary/50 transition-all duration-200 hover:shadow-healthcare-lg hover-scale bg-background"
+            className="group flex-shrink-0 p-4 rounded-lg border border-border hover:border-primary/50 transition-all duration-200 hover:shadow-healthcare-lg hover-scale bg-background min-w-[140px] min-h-[100px]"
           >
-            <div className="flex flex-col items-center text-center space-y-3">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${action.color} group-hover:scale-110 transition-transform duration-200`}>
-                <Icon name={action.icon} size={24} />
+            <div className="flex flex-col items-center text-center space-y-2 h-full justify-center">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${action.color} group-hover:scale-110 transition-transform duration-200`}>
+                <Icon name={action.icon} size={20} />
               </div>
-              <div>
-                <h4 className="font-semibold text-foreground text-sm mb-1">{action.title}</h4>
-                <p className="text-xs text-muted-foreground">{action.description}</p>
+              <div className="space-y-1">
+                <h4 className="font-semibold text-foreground text-xs leading-tight whitespace-nowrap">{action.title}</h4>
+                <p className="text-xs text-muted-foreground leading-snug text-center">{action.description}</p>
               </div>
             </div>
           </button>
@@ -74,13 +74,13 @@ const QuickActionsCard = () => {
       </div>
 
       <div className="mt-6 pt-4 border-t border-border">
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Button
             variant="outline"
             size="sm"
             iconName="MessageSquare"
             iconPosition="left"
-            className="flex-1"
+            className="w-full h-10 flex items-center justify-center"
           >
             Chat with Support
           </Button>
@@ -89,7 +89,7 @@ const QuickActionsCard = () => {
             size="sm"
             iconName="Phone"
             iconPosition="left"
-            className="flex-1"
+            className="w-full h-10 flex items-center justify-center"
           >
             Call Clinic
           </Button>

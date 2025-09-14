@@ -13,9 +13,17 @@ const initialState = {
 };
 
 const authReducer = (state, action) => {
+  console.log('AuthReducer: Action dispatched:', action.type, action.payload);
   switch (action.type) {
     case 'AUTH_START':
-      return { ...state, isLoading: true, error: null };
+      return { 
+        ...state, 
+        isLoading: true, 
+        error: null,
+        isAuthenticated: false,
+        user: null,
+        userRole: null
+      };
     case 'AUTH_SUCCESS':
       return {
         ...state,
@@ -72,11 +80,16 @@ export const AuthProvider = ({ children }) => {
           const user = {
             id: 'user_' + Date.now(),
             email: userEmail,
-            firstName: userName ? userName.split(' ')[0] : 'User',
-            lastName: userName ? userName.split(' ')[1] || '' : '',
+            firstName: userName ? userName.split(' ')[0] : (userRole === 'doctor' ? 'John' : 'User'),
+            lastName: userName ? userName.split(' ')[1] || '' : (userRole === 'doctor' ? 'Smith' : ''),
             role: userRole,
             phone: localStorage.getItem('userPhone') || '',
-            isEmailVerified: true
+            isEmailVerified: true,
+            ...(userRole === 'doctor' && {
+              specialization: localStorage.getItem('userSpecialization') || 'General Medicine',
+              licenseNumber: localStorage.getItem('userLicense') || 'MD12345',
+              department: localStorage.getItem('userDepartment') || 'Internal Medicine'
+            })
           };
           
           dispatch({
@@ -114,6 +127,14 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('authToken', response.token);
         localStorage.setItem('userRole', response.user.role);
         localStorage.setItem('userEmail', response.user.email);
+        localStorage.setItem('userName', `${response.user.firstName} ${response.user.lastName}`);
+        
+        // Store doctor-specific information
+        if (response.user.role === 'doctor') {
+          localStorage.setItem('userSpecialization', response.user.specialization || 'General Medicine');
+          localStorage.setItem('userLicense', response.user.licenseNumber || 'MD12345');
+          localStorage.setItem('userDepartment', response.user.department || 'Internal Medicine');
+        }
         
         if (rememberMe) {
           localStorage.setItem('rememberMe', 'true');
@@ -141,7 +162,9 @@ export const AuthProvider = ({ children }) => {
     try {
       dispatch({ type: 'AUTH_START' });
       
+      console.log('AuthContext: Starting registration for:', userData.email);
       const response = await authService.signUp(userData.email, userData.password, userData);
+      console.log('AuthContext: Registration response:', response);
       
       if (response.success) {
         localStorage.setItem('authToken', response.token);
@@ -150,21 +173,37 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('userName', `${response.user.firstName} ${response.user.lastName}`);
         localStorage.setItem('userPhone', userData.phone || '');
         
+        // Store doctor-specific information
+        if (response.user.role === 'doctor') {
+          localStorage.setItem('userSpecialization', userData.specialization || response.user.specialization || 'General Medicine');
+          localStorage.setItem('userLicense', userData.licenseNumber || response.user.licenseNumber || 'MD12345');
+          localStorage.setItem('userDepartment', userData.department || response.user.department || 'Internal Medicine');
+        }
+        
         dispatch({
           type: 'AUTH_SUCCESS',
           payload: { user: response.user }
         });
         
+        console.log('AuthContext: Registration successful');
         return { success: true };
       } else {
-        throw new Error(response.message || 'Registration failed');
+        const errorMessage = response.message || 'Registration failed';
+        console.log('AuthContext: Registration failed with message:', errorMessage);
+        dispatch({
+          type: 'AUTH_FAILURE',
+          payload: errorMessage
+        });
+        return { success: false, error: errorMessage };
       }
     } catch (error) {
+      const errorMessage = error.message || 'Registration failed';
+      console.error('AuthContext: Registration exception:', error);
       dispatch({
         type: 'AUTH_FAILURE',
-        payload: error.message || 'Registration failed'
+        payload: errorMessage
       });
-      throw error;
+      return { success: false, error: errorMessage };
     }
   };
 
@@ -185,6 +224,9 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('userEmail');
       localStorage.removeItem('userName');
       localStorage.removeItem('userPhone');
+      localStorage.removeItem('userSpecialization');
+      localStorage.removeItem('userLicense');
+      localStorage.removeItem('userDepartment');
       localStorage.removeItem('rememberMe');
       
       dispatch({ type: 'AUTH_LOGOUT' });
