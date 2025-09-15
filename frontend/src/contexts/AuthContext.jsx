@@ -42,6 +42,13 @@ const authReducer = (state, action) => {
         error: action.payload,
         userRole: null
       };
+    case 'PROFILE_UPDATE_ERROR':
+      return {
+        ...state,
+        isLoading: false,
+        error: action.payload
+        // Keep user and authentication state intact
+      };
     case 'AUTH_LOGOUT':
       return {
         ...state,
@@ -72,30 +79,52 @@ export const AuthProvider = ({ children }) => {
         try {
           dispatch({ type: 'AUTH_START' });
           
-          // For now, create a simple user object from localStorage
-          // TODO: Replace with real API call when backend is ready
-          const userEmail = localStorage.getItem('userEmail');
-          const userName = localStorage.getItem('userName');
+          // Get current user data from backend
+          const sessionResponse = await authService.getSession();
           
-          const user = {
-            id: 'user_' + Date.now(),
-            email: userEmail,
-            firstName: userName ? userName.split(' ')[0] : (userRole === 'doctor' ? 'John' : 'User'),
-            lastName: userName ? userName.split(' ')[1] || '' : (userRole === 'doctor' ? 'Smith' : ''),
-            role: userRole,
-            phone: localStorage.getItem('userPhone') || '',
-            isEmailVerified: true,
-            ...(userRole === 'doctor' && {
-              specialization: localStorage.getItem('userSpecialization') || 'General Medicine',
-              licenseNumber: localStorage.getItem('userLicense') || 'MD12345',
-              department: localStorage.getItem('userDepartment') || 'Internal Medicine'
-            })
-          };
-          
-          dispatch({
-            type: 'AUTH_SUCCESS',
-            payload: { user }
-          });
+          if (sessionResponse.success) {
+            dispatch({
+              type: 'AUTH_SUCCESS',
+              payload: { user: sessionResponse.user }
+            });
+          } else {
+            // Check if token expired
+            if (sessionResponse.error === 'Token expired') {
+              // Clear all auth data and force logout
+              localStorage.removeItem('authToken');
+              localStorage.removeItem('userRole');
+              localStorage.removeItem('userEmail');
+              localStorage.removeItem('userName');
+              localStorage.removeItem('userPhone');
+              dispatch({ type: 'AUTH_LOGOUT' });
+              return;
+            }
+            
+            // If session is invalid, fallback to localStorage data temporarily
+            // This helps with development when backend might not be available
+            const userEmail = localStorage.getItem('userEmail');
+            const userName = localStorage.getItem('userName');
+            
+            const user = {
+              id: 'user_' + Date.now(),
+              email: userEmail,
+              firstName: userName ? userName.split(' ')[0] : (userRole === 'doctor' ? 'John' : 'User'),
+              lastName: userName ? userName.split(' ')[1] || '' : (userRole === 'doctor' ? 'Smith' : ''),
+              role: userRole,
+              phone: localStorage.getItem('userPhone') || '',
+              isEmailVerified: true,
+              ...(userRole === 'doctor' && {
+                specialization: localStorage.getItem('userSpecialization') || 'General Medicine',
+                licenseNumber: localStorage.getItem('userLicense') || 'MD12345',
+                department: localStorage.getItem('userDepartment') || 'Internal Medicine'
+              })
+            };
+            
+            dispatch({
+              type: 'AUTH_SUCCESS',
+              payload: { user }
+            });
+          }
         } catch (error) {
           console.error('Auth check failed:', error);
           dispatch({
@@ -238,6 +267,83 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'CLEAR_ERROR' });
   };
 
+  const updateUserProfile = async (profileData) => {
+    try {
+      dispatch({ type: 'AUTH_START' });
+      
+      console.log('Updating user profile:', profileData);
+      
+      // Call the backend API to update the profile
+      const response = await authService.updateProfile(state.user.id, profileData);
+      
+      console.log('AuthContext - Backend response:', response);
+      
+      if (response.success) {
+        // Use the updated user data from the backend response
+        const backendUser = response.data.user; // Backend returns data.user
+        const updatedUser = {
+          ...state.user,
+          ...backendUser,
+          // Ensure nested objects are properly merged from backend response
+          address: {
+            ...state.user?.address,
+            ...backendUser.address
+          },
+          emergencyContact: {
+            ...state.user?.emergencyContact,
+            ...backendUser.emergencyContact
+          },
+          medicalInfo: {
+            ...state.user?.medicalInfo,
+            ...backendUser.medicalInfo
+          },
+          professionalInfo: {
+            ...state.user?.professionalInfo,
+            ...backendUser.professionalInfo
+          }
+        };
+        
+        console.log('AuthContext - Original user state:', state.user);
+        console.log('AuthContext - Backend user data:', backendUser);
+        console.log('AuthContext - Final merged user:', updatedUser);
+        
+        // Update localStorage with new data from backend
+        localStorage.setItem('userName', `${updatedUser.firstName} ${updatedUser.lastName}`);
+        localStorage.setItem('userPhone', updatedUser.phone || '');
+        
+        if (updatedUser.role === 'doctor' && updatedUser.professionalInfo) {
+          localStorage.setItem('userSpecialization', updatedUser.professionalInfo.specialization || 'General Medicine');
+          localStorage.setItem('userLicense', updatedUser.professionalInfo.licenseNumber || 'MD12345');
+          localStorage.setItem('userDepartment', updatedUser.professionalInfo.department || 'Internal Medicine');
+        }
+        
+        dispatch({
+          type: 'AUTH_SUCCESS',
+          payload: { user: updatedUser }
+        });
+        
+        console.log('Profile updated successfully on backend');
+        return { success: true }; // Profile update completed successfully
+      } else {
+        throw new Error(response.message || 'Failed to update profile on backend');
+      }
+    } catch (error) {
+      console.error('Profile update failed:', error);
+      
+      // Handle token expiration by logging out user
+      if (error.message === 'Token expired') {
+        await handleLogout();
+        throw new Error('Session expired. Please log in again.');
+      }
+      
+      dispatch({
+        type: 'PROFILE_UPDATE_ERROR',
+        payload: error.message || 'Profile update failed'
+      });
+      throw error;
+    }
+  };
+
   const value = {
     ...state,
     login,
@@ -245,7 +351,8 @@ export const AuthProvider = ({ children }) => {
     register,
     signUp,
     logout,
-    clearError
+    clearError,
+    updateUserProfile
   };
 
   return (

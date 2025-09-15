@@ -12,6 +12,7 @@ import PrescriptionStatusCard from './components/PrescriptionStatusCard';
 import QuickActionsCard from './components/QuickActionsCard';
 import RecentActivityFeed from './components/RecentActivityFeed';
 import AppointmentBookingWidget from './components/AppointmentBookingWidget';
+import ProfileCompletionBanner from '../../components/ui/ProfileCompletionBanner';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 
@@ -234,6 +235,9 @@ const PatientDashboard = () => {
               </div>
             </div>
           </div>
+
+          {/* Profile Completion Banner */}
+          <ProfileCompletionBanner user={user} className="mb-6" />
 
           {/* Dashboard Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">

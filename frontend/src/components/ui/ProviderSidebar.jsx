@@ -19,6 +19,13 @@ const ProviderSidebar = () => {
       isActive: location.pathname === '/doctor-dashboard'
     },
     {
+      id: 'profile',
+      label: 'Profile',
+      icon: 'User',
+      path: '/profile',
+      isActive: location.pathname === '/profile'
+    },
+    {
       id: 'appointments',
       label: 'Appointments',
       icon: 'Calendar',

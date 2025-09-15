@@ -21,12 +21,7 @@ function createPatientDashboardService() {
       // Handle authentication errors
       if (response.status === 401) {
         localStorage.removeItem('authToken');
-        localStorage.removeItem('userRole');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userName');
-        localStorage.removeItem('userPhone');
-        // Don't use window.location.href as it causes page reload
-        // Let the AuthContext handle navigation
+        window.location.href = '/login';
         throw new Error('Authentication expired. Please login again.');
       }
       
@@ -204,19 +199,8 @@ function createPatientDashboardService() {
         return result.success ? result.data : [];
       } catch (error) {
         console.error('Get upcoming appointments error:', error);
-        // Return mock data as fallback
-        return [
-          {
-            id: 'APT001',
-            doctor: 'Dr. Sarah Johnson',
-            date: 'March 15, 2024',
-            time: '10:30 AM',
-            type: 'General Checkup',
-            location: 'Room 101, Main Building',
-            status: 'confirmed',
-            notes: 'Annual physical examination'
-          }
-        ];
+        // Return empty data - user needs to complete profile to see appointments
+        return [];
       }
     },
 
@@ -229,36 +213,8 @@ function createPatientDashboardService() {
         return result.success ? result.data : [];
       } catch (error) {
         console.error('Get health metrics error:', error);
-        // Return mock data as fallback
-        return [
-          {
-            type: 'blood_pressure',
-            name: 'Blood Pressure',
-            value: '120/80 mmHg',
-            status: 'normal',
-            lastUpdated: '2 hours ago',
-            trend: 'stable',
-            change: 'No change'
-          },
-          {
-            type: 'heart_rate',
-            name: 'Heart Rate',
-            value: '72 bpm',
-            status: 'normal',
-            lastUpdated: '2 hours ago',
-            trend: 'down',
-            change: '-5 bpm'
-          },
-          {
-            type: 'temperature',
-            name: 'Temperature',
-            value: '98.6°F',
-            status: 'normal',
-            lastUpdated: '3 hours ago',
-            trend: 'stable',
-            change: 'Normal'
-          }
-        ];
+        // Return empty data - user needs to complete profile to see health metrics
+        return [];
       }
     },
 
@@ -271,27 +227,8 @@ function createPatientDashboardService() {
         return result.success ? result.data : [];
       } catch (error) {
         console.error('Get prescription status error:', error);
-        // Return mock data as fallback
-        return [
-          {
-            medication: 'Lisinopril',
-            dosage: '10mg',
-            frequency: 'Once daily',
-            status: 'active',
-            prescribedDate: 'Feb 1, 2024',
-            refillsLeft: 2,
-            nextDose: 'Today 8:00 PM'
-          },
-          {
-            medication: 'Metformin',
-            dosage: '500mg',
-            frequency: 'Twice daily',
-            status: 'refill_needed',
-            prescribedDate: 'Jan 15, 2024',
-            refillsLeft: 0,
-            nextDose: 'Today 6:00 PM'
-          }
-        ];
+        // Return empty data - user needs to complete profile to see prescriptions
+        return [];
       }
     },
 
@@ -304,33 +241,8 @@ function createPatientDashboardService() {
         return result.success ? result.data : [];
       } catch (error) {
         console.error('Get recent activities error:', error);
-        // Return mock data as fallback
-        return [
-          {
-            type: 'appointment',
-            title: 'Appointment Confirmed',
-            description: 'Your appointment with Dr. Sarah Johnson has been confirmed for March 15, 2024',
-            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-            status: 'confirmed',
-            actionable: true
-          },
-          {
-            type: 'test_result',
-            title: 'Lab Results Available',
-            description: 'Your blood work results from March 10 are now available',
-            timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-            status: 'new',
-            actionable: true
-          },
-          {
-            type: 'prescription',
-            title: 'Prescription Refill Reminder',
-            description: 'Metformin prescription needs refill by March 20, 2024',
-            timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-            status: 'pending',
-            actionable: true
-          }
-        ];
+        // Return empty data - user needs to complete profile to see activities
+        return [];
       }
     }
   };

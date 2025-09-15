@@ -38,7 +38,7 @@ const RegisterForm = ({ onSubmit, isLoading, error }) => {
     };
 
     // Add event listener to the current form
-    const form = document.querySelector('form[action="javascript:void(0)"]');
+    const form = document.querySelector('form');
     if (form) {
       form.addEventListener('submit', handleFormSubmit, true);
       return () => form.removeEventListener('submit', handleFormSubmit, true);
@@ -47,8 +47,8 @@ const RegisterForm = ({ onSubmit, isLoading, error }) => {
 
   const roleOptions = [
     { value: 'patient', label: 'Patient', description: 'Book appointments and manage health records' },
-    { value: 'doctor', label: 'Doctor', description: 'Manage patients and appointments' },
-    { value: 'admin', label: 'Administrator', description: 'System administration and analytics' }
+    { value: 'doctor', label: 'Doctor', description: 'Manage patients and appointments' }
+    // { value: 'admin', label: 'Administrator', description: 'System administration and analytics' }
   ];
 
   const genderOptions = [
@@ -257,7 +257,6 @@ const RegisterForm = ({ onSubmit, isLoading, error }) => {
       }} 
       className="space-y-4" 
       noValidate
-      action="javascript:void(0)"
     >
       {(error || localError) && (
         <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm">

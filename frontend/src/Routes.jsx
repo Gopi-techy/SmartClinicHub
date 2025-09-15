@@ -1,4 +1,4 @@
- import React from "react";
+import React from "react";
 import { Routes as RouterRoutes, Route, Navigate } from "react-router-dom";
 import ScrollToTop from "./components/ScrollToTop";
 import { useAuth } from "./contexts/AuthContext";
@@ -11,6 +11,7 @@ import AppointmentBooking from "./pages/appointment-booking";
 import HealthRecordsManagement from "./pages/health-records-management";
 import DoctorDashboard from "./pages/doctor-dashboard";
 import MessagingPage from "./pages/messaging";
+import ProfilePage from "./pages/profile";
 import NotFound from "./pages/NotFound";
 
 // Protected Route Component
@@ -131,6 +132,14 @@ const Routes = () => {
             element={
               <HealthcareRoute>
                 <MessagingPage />
+              </HealthcareRoute>
+            } 
+          />
+          <Route 
+            path="/profile" 
+            element={
+              <HealthcareRoute>
+                <ProfilePage />
               </HealthcareRoute>
             } 
           />

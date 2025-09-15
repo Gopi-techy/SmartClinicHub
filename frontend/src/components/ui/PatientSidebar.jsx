@@ -21,6 +21,13 @@ const PatientSidebar = () => {
       isActive: location.pathname === '/patient-dashboard'
     },
     {
+      id: 'profile',
+      label: 'Profile',
+      icon: 'User',
+      path: '/profile',
+      isActive: location.pathname === '/profile'
+    },
+    {
       id: 'appointments',
       label: 'Appointments',
       icon: 'Calendar',

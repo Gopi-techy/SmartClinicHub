@@ -8,6 +8,7 @@ import TodaySchedule from './components/TodaySchedule';
 import PatientManagementTable from './components/PatientManagementTable';
 import QuickActions from './components/QuickActions';
 import PatientNotesPanel from './components/PatientNotesPanel';
+import ProfileCompletionBanner from '../../components/ui/ProfileCompletionBanner';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 
@@ -162,7 +163,7 @@ const DoctorDashboard = () => {
         <ProviderSidebar />
       
       {/* Main Content */}
-      <div className="pt-16 md:ml-64">
+      <div className="pt-16 md:ml-80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Welcome Section */}
           <div className="mb-8">
@@ -203,6 +204,9 @@ const DoctorDashboard = () => {
               </div>
             </div>
           </div>
+
+          {/* Profile Completion Banner */}
+          <ProfileCompletionBanner user={user} className="mb-6" />
 
           {/* Dashboard Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">

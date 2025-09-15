@@ -141,15 +141,15 @@ const updateUser = async (req, res) => {
 
     // Fields that can be updated by regular users
     const allowedUpdates = [
-      'firstName', 'lastName', 'phone', 'address', 'bio', 
+      'firstName', 'lastName', 'phone', 'address', 
       'emergencyContact', 'dateOfBirth', 'gender'
     ];
     
     // Role-specific fields
     if (user.role === 'patient') {
-      allowedUpdates.push('medicalHistory', 'allergies', 'medications');
-    } else if (['doctor', 'nurse'].includes(user.role)) {
-      allowedUpdates.push('professionalInfo', 'specialization', 'availableHours');
+      allowedUpdates.push('medicalInfo');
+    } else if (['doctor', 'pharmacy'].includes(user.role)) {
+      allowedUpdates.push('professionalInfo');
     }
     
     // Admin can update additional fields
@@ -168,6 +168,27 @@ const updateUser = async (req, res) => {
     // Validate email if being updated (admin only)
     if (updates.email && req.user.role !== 'admin') {
       delete updates.email; // Remove email from updates for non-admin users
+    }
+
+    // Handle nested object updates properly
+    if (updates.address) {
+      // Merge with existing address data
+      updates.address = { ...user.address?.toObject(), ...updates.address };
+    }
+    
+    if (updates.emergencyContact) {
+      // Merge with existing emergency contact data
+      updates.emergencyContact = { ...user.emergencyContact?.toObject(), ...updates.emergencyContact };
+    }
+    
+    if (updates.medicalInfo) {
+      // Merge with existing medical info data
+      updates.medicalInfo = { ...user.medicalInfo?.toObject(), ...updates.medicalInfo };
+    }
+    
+    if (updates.professionalInfo) {
+      // Merge with existing professional info data
+      updates.professionalInfo = { ...user.professionalInfo?.toObject(), ...updates.professionalInfo };
     }
 
     const updatedUser = await User.findByIdAndUpdate(

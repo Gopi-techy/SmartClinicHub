@@ -28,7 +28,7 @@ function createAuthService() {
         console.error('SignIn error:', error);
         return {
           success: false,
-          message: error.message || 'Network error during login'
+          message: error.message || 'Login failed. Please check your connection and try again.'
         };
       }
     },
@@ -162,10 +162,23 @@ function createAuthService() {
             user: data.data.user
           };
         } else {
+          // Check for authentication errors
+          if (response.status === 401) {
+            throw new Error('Token expired');
+          }
           throw new Error(data.message || 'Session validation failed');
         }
       } catch (error) {
         console.error('GetSession error:', error);
+        
+        // Handle token expiration specifically
+        if (error.message === 'Token expired' || error.message.includes('expired')) {
+          return {
+            success: false,
+            error: 'Token expired'
+          };
+        }
+        
         return {
           success: false,
           error: error.message || 'Network error during session check'
@@ -222,10 +235,25 @@ function createAuthService() {
             data: data.data
           };
         } else {
-          throw new Error(data.message || 'Failed to update profile');
+          // Check for authentication errors
+          if (response.status === 401) {
+            throw new Error('Token expired');
+          }
+          
+          // Log detailed error information for debugging
+          console.error('Profile update failed - Status:', response.status);
+          console.error('Profile update failed - Response data:', data);
+          
+          throw new Error(data.message || `Failed to update profile (${response.status})`);
         }
       } catch (error) {
         console.error('UpdateProfile error:', error);
+        
+        // Handle token expiration specifically  
+        if (error.message === 'Token expired' || error.message.includes('expired')) {
+          throw error; // Re-throw to be handled by AuthContext
+        }
+        
         return {
           success: false,
           message: error.message || 'Network error during profile update'

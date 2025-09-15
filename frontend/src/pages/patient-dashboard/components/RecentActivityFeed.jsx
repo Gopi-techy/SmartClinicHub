@@ -2,7 +2,7 @@ import React from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 
-const RecentActivityFeed = ({ activities }) => {
+const RecentActivityFeed = ({ activities = [] }) => {
   const getActivityIcon = (type) => {
     switch (type) {
       case 'appointment':

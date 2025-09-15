@@ -2,7 +2,7 @@ import React from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 
-const PrescriptionStatusCard = ({ prescriptions }) => {
+const PrescriptionStatusCard = ({ prescriptions = [] }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'active':
@@ -42,7 +42,9 @@ const PrescriptionStatusCard = ({ prescriptions }) => {
           </div>
           <div>
             <h3 className="text-lg font-semibold text-foreground">Prescriptions</h3>
-            <p className="text-sm text-muted-foreground">{prescriptions.length} active medications</p>
+            <p className="text-sm text-muted-foreground">
+              {prescriptions.length === 0 ? 'No medications' : `${prescriptions.length} active medications`}
+            </p>
           </div>
         </div>
         <Button variant="ghost" size="sm" iconName="Plus">
@@ -50,8 +52,18 @@ const PrescriptionStatusCard = ({ prescriptions }) => {
         </Button>
       </div>
 
-      <div className="space-y-4 mb-6">
-        {prescriptions.map((prescription, index) => (
+      {prescriptions.length === 0 ? (
+        <div className="text-center py-8">
+          <Icon name="Pill" size={48} className="mx-auto text-muted-foreground mb-4" />
+          <h4 className="text-lg font-medium text-foreground mb-2">No Prescriptions</h4>
+          <p className="text-muted-foreground mb-4">Complete your profile to manage prescriptions and medications</p>
+          <Button variant="outline" iconName="Plus" iconPosition="left">
+            Add Medication
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4 mb-6">
+          {prescriptions.map((prescription, index) => (
           <div key={index} className="bg-muted/30 rounded-lg p-4">
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
@@ -88,39 +100,42 @@ const PrescriptionStatusCard = ({ prescriptions }) => {
                 <span>Next dose: {prescription.nextDose}</span>
               </div>
             )}
-          </div>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Button
-          variant="outline"
-          size="sm"
-          iconName="FileText"
-          iconPosition="left"
-          className="flex-1"
-        >
-          View All
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          iconName="RefreshCw"
-          iconPosition="left"
-          className="flex-1"
-        >
-          Request Refill
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          iconName="Download"
-          iconPosition="left"
-          className="flex-1"
-        >
-          Download List
-        </Button>
-      </div>
+      {prescriptions.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            iconName="FileText"
+            iconPosition="left"
+            className="flex-1"
+          >
+            View All
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            iconName="RefreshCw"
+            iconPosition="left"
+            className="flex-1"
+          >
+            Request Refill
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            iconName="Download"
+            iconPosition="left"
+            className="flex-1"
+          >
+            Download List
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
