@@ -189,6 +189,16 @@ const updateUser = async (req, res) => {
     if (updates.professionalInfo) {
       // Merge with existing professional info data
       updates.professionalInfo = { ...user.professionalInfo?.toObject(), ...updates.professionalInfo };
+      
+      // Check if doctor is submitting for verification
+      if (user.role === 'doctor' && 
+          updates.professionalInfo.licenseNumber && 
+          user.verificationStatus === 'unverified') {
+        updates.verificationStatus = 'pending';
+        updates.verificationDetails = {
+          submittedAt: new Date()
+        };
+      }
     }
 
     const updatedUser = await User.findByIdAndUpdate(

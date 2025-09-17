@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../utils/authService';
+import { emitNewDoctorRegistration } from '../utils/eventManager';
 
 const AuthContext = createContext();
 
@@ -214,6 +215,12 @@ export const AuthProvider = ({ children }) => {
           payload: { user: response.user }
         });
         
+        // Trigger event for admin dashboard to refresh when new doctor registers
+        if (response.user.role === 'doctor') {
+          emitNewDoctorRegistration(response.user);
+          console.log('📢 New doctor registration event triggered');
+        }
+        
         console.log('AuthContext: Registration successful');
         return { success: true };
       } else {
@@ -265,6 +272,26 @@ export const AuthProvider = ({ children }) => {
 
   const clearError = () => {
     dispatch({ type: 'CLEAR_ERROR' });
+  };
+
+  const refreshUser = async () => {
+    try {
+      const sessionResponse = await authService.getSession();
+      
+      if (sessionResponse.success) {
+        dispatch({
+          type: 'AUTH_SUCCESS',
+          payload: { user: sessionResponse.user }
+        });
+        return { success: true, user: sessionResponse.user };
+      } else {
+        console.warn('Failed to refresh user data:', sessionResponse.error);
+        return { success: false, error: sessionResponse.error };
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+      return { success: false, error: error.message };
+    }
   };
 
   const updateUserProfile = async (profileData) => {
@@ -352,6 +379,7 @@ export const AuthProvider = ({ children }) => {
     signUp,
     logout,
     clearError,
+    refreshUser,
     updateUserProfile
   };
 

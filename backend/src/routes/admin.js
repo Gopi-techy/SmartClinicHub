@@ -405,6 +405,378 @@ router.put('/user/:id/status',
 );
 
 /**
+ * @route   GET /api/admin/doctors/pending
+ * @desc    Get all pending doctor verifications
+ * @access  Private (Admin)
+ */
+router.get('/doctors/pending',
+  authenticate,
+  authorize('admin'),
+  asyncHandler(async (req, res) => {
+    const { page = 1, limit = 20, sortBy = 'submittedAt', sortOrder = 'asc' } = req.query;
+
+    const pendingDoctors = await User.findPendingDoctors()
+      .select('-password -refreshTokens')
+      .sort({ [`verificationDetails.${sortBy}`]: sortOrder === 'desc' ? -1 : 1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
+
+    const totalPending = await User.countDocuments({
+      role: 'doctor',
+      verificationStatus: 'pending',
+      isActive: true,
+      isDeleted: false
+    });
+
+    logger.audit('Pending doctors list accessed', req.user._id, {
+      page,
+      limit,
+      totalPending,
+      ip: req.ip
+    });
+
+    res.json({
+      success: true,
+      message: 'Pending doctor verifications retrieved successfully',
+      data: {
+        doctors: pendingDoctors,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalPending / parseInt(limit)),
+          totalItems: totalPending,
+          hasNextPage: parseInt(page) * parseInt(limit) < totalPending,
+          hasPrevPage: parseInt(page) > 1
+        }
+      }
+    });
+  })
+);
+
+/**
+ * @route   GET /api/admin/doctors/unverified
+ * @desc    Get all unverified doctors (including those without verification status set)
+ * @access  Private (Admin)
+ */
+router.get('/doctors/unverified',
+  authenticate,
+  authorize('admin'),
+  asyncHandler(async (req, res) => {
+    const { page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+
+    // Query for doctors who are unverified OR don't have verification status set yet
+    const query = {
+      role: 'doctor',
+      $or: [
+        { verificationStatus: 'unverified' },
+        { verificationStatus: { $exists: false } },
+        { verificationStatus: null }
+      ]
+    };
+
+    const unverifiedDoctors = await User.find(query)
+      .select('-password -refreshTokens -passwordResetToken -emailVerificationToken')
+      .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
+
+    const totalUnverified = await User.countDocuments(query);
+
+    logger.audit('Unverified doctors list accessed', req.user._id, {
+      page,
+      limit,
+      totalUnverified,
+      ip: req.ip
+    });
+
+    res.json({
+      success: true,
+      message: 'Unverified doctors retrieved successfully',
+      data: {
+        doctors: unverifiedDoctors,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalUnverified / parseInt(limit)),
+          totalItems: totalUnverified,
+          hasNextPage: parseInt(page) * parseInt(limit) < totalUnverified,
+          hasPrevPage: parseInt(page) > 1
+        }
+      }
+    });
+  })
+);
+
+/**
+ * @route   GET /api/admin/doctors/all-verification-statuses
+ * @desc    Get doctors by all verification statuses (unverified, pending, approved, rejected)
+ * @access  Private (Admin)
+ */
+router.get('/doctors/all-verification-statuses',
+  authenticate,
+  authorize('admin'),
+  asyncHandler(async (req, res) => {
+    const { 
+      page = 1, 
+      limit = 20, 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc',
+      status = 'all' // all, unverified, pending, approved, rejected
+    } = req.query;
+
+    let query = {
+      role: 'doctor'
+      // Remove isActive and isDeleted filters to show ALL doctors
+    };
+
+    // Filter by verification status if specified
+    if (status !== 'all') {
+      // Handle cases where verificationStatus might not be set yet
+      if (status === 'unverified') {
+        query.$or = [
+          { verificationStatus: 'unverified' },
+          { verificationStatus: { $exists: false } },
+          { verificationStatus: null }
+        ];
+      } else {
+        query.verificationStatus = status;
+      }
+    }
+
+    const doctors = await User.find(query)
+      .select('-password -refreshTokens -passwordResetToken -emailVerificationToken')
+      .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .populate('verificationDetails.reviewedBy', 'firstName lastName');
+
+    const totalDoctors = await User.countDocuments(query);
+
+    logger.audit('All doctors verification statuses accessed', req.user._id, {
+      page,
+      limit,
+      status,
+      totalDoctors,
+      ip: req.ip
+    });
+
+    res.json({
+      success: true,
+      message: 'Doctors by verification status retrieved successfully',
+      data: {
+        doctors: doctors,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalDoctors / parseInt(limit)),
+          totalItems: totalDoctors,
+          hasNextPage: parseInt(page) * parseInt(limit) < totalDoctors,
+          hasPrevPage: parseInt(page) > 1
+        },
+        filters: {
+          status: status
+        }
+      }
+    });
+  })
+);
+
+/**
+ * @route   PUT /api/admin/doctors/:id/approve
+ * @desc    Approve doctor verification
+ * @access  Private (Admin)
+ */
+router.put('/doctors/:id/approve',
+  authenticate,
+  authorize('admin'),
+  validateObjectId('id'),
+  handleValidationErrors,
+  rateLimitSensitive(50, 60 * 60 * 1000), // 50 approvals per hour
+  asyncHandler(async (req, res) => {
+    const { adminNotes } = req.body;
+
+    const doctor = await User.findOne({
+      _id: req.params.id,
+      role: 'doctor',
+      verificationStatus: 'pending'
+    });
+
+    if (!doctor) {
+      return res.status(404).json({
+        error: true,
+        message: 'Pending doctor verification not found'
+      });
+    }
+
+    await doctor.approveVerification(req.user._id, adminNotes);
+
+    // Emit real-time notification to doctor if socket.io is available
+    if (req.app.get('io')) {
+      req.app.get('io').to(`user_${doctor._id}`).emit('verificationStatusUpdate', {
+        status: 'approved',
+        message: 'Your doctor verification has been approved! You can now appear in patient searches.',
+        approvedAt: new Date(),
+        adminNotes
+      });
+    }
+
+    // Log approval
+    logger.security('Doctor verification approved', {
+      adminId: req.user._id,
+      doctorId: doctor._id,
+      doctorEmail: doctor.email,
+      licenseNumber: doctor.professionalInfo?.licenseNumber,
+      adminNotes,
+      ip: req.ip
+    });
+
+    res.json({
+      success: true,
+      message: 'Doctor verification approved successfully',
+      data: {
+        doctorId: doctor._id,
+        doctorName: `${doctor.firstName} ${doctor.lastName}`,
+        verificationStatus: 'approved',
+        approvedBy: req.user._id,
+        approvedAt: new Date(),
+        adminNotes
+      }
+    });
+  })
+);
+
+/**
+ * @route   PUT /api/admin/doctors/:id/reject
+ * @desc    Reject doctor verification
+ * @access  Private (Admin)
+ */
+router.put('/doctors/:id/reject',
+  authenticate,
+  authorize('admin'),
+  validateObjectId('id'),
+  handleValidationErrors,
+  rateLimitSensitive(50, 60 * 60 * 1000), // 50 rejections per hour
+  asyncHandler(async (req, res) => {
+    const { rejectionReason, adminNotes } = req.body;
+
+    if (!rejectionReason) {
+      return res.status(400).json({
+        error: true,
+        message: 'Rejection reason is required'
+      });
+    }
+
+    const doctor = await User.findOne({
+      _id: req.params.id,
+      role: 'doctor',
+      verificationStatus: 'pending'
+    });
+
+    if (!doctor) {
+      return res.status(404).json({
+        error: true,
+        message: 'Pending doctor verification not found'
+      });
+    }
+
+    await doctor.rejectVerification(req.user._id, rejectionReason, adminNotes);
+
+    // Emit real-time notification to doctor if socket.io is available
+    if (req.app.get('io')) {
+      req.app.get('io').to(`user_${doctor._id}`).emit('verificationStatusUpdate', {
+        status: 'rejected',
+        message: 'Your doctor verification has been rejected. Please review the feedback and resubmit.',
+        rejectedAt: new Date(),
+        rejectionReason,
+        adminNotes
+      });
+    }
+
+    // Log rejection
+    logger.security('Doctor verification rejected', {
+      adminId: req.user._id,
+      doctorId: doctor._id,
+      doctorEmail: doctor.email,
+      licenseNumber: doctor.professionalInfo?.licenseNumber,
+      rejectionReason,
+      adminNotes,
+      ip: req.ip
+    });
+
+    res.json({
+      success: true,
+      message: 'Doctor verification rejected',
+      data: {
+        doctorId: doctor._id,
+        doctorName: `${doctor.firstName} ${doctor.lastName}`,
+        verificationStatus: 'rejected',
+        rejectedBy: req.user._id,
+        rejectedAt: new Date(),
+        rejectionReason,
+        adminNotes
+      }
+    });
+  })
+);
+
+/**
+ * @route   GET /api/admin/doctors/verification-stats
+ * @desc    Get doctor verification statistics
+ * @access  Private (Admin)
+ */
+router.get('/doctors/verification-stats',
+  authenticate,
+  authorize('admin'),
+  asyncHandler(async (req, res) => {
+    const stats = await User.aggregate([
+      {
+        $match: { role: 'doctor', isActive: true, isDeleted: false }
+      },
+      {
+        $group: {
+          _id: '$verificationStatus',
+          count: { $sum: 1 },
+          avgProcessingTime: {
+            $avg: {
+              $cond: [
+                { $and: [
+                  { $ne: ['$verificationDetails.submittedAt', null] },
+                  { $ne: ['$verificationDetails.reviewedAt', null] }
+                ]},
+                {
+                  $divide: [
+                    { $subtract: ['$verificationDetails.reviewedAt', '$verificationDetails.submittedAt'] },
+                    1000 * 60 * 60 * 24 // Convert to days
+                  ]
+                },
+                null
+              ]
+            }
+          }
+        }
+      }
+    ]);
+
+    const recentVerifications = await User.find({
+      role: 'doctor',
+      'verificationDetails.reviewedAt': { $exists: true },
+      'verificationDetails.reviewedAt': { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+    })
+    .select('firstName lastName verificationStatus verificationDetails')
+    .populate('verificationDetails.reviewedBy', 'firstName lastName')
+    .sort({ 'verificationDetails.reviewedAt': -1 })
+    .limit(10);
+
+    res.json({
+      success: true,
+      message: 'Doctor verification statistics retrieved successfully',
+      data: {
+        statistics: stats,
+        recentVerifications,
+        generatedAt: new Date()
+      }
+    });
+  })
+);
+
+/**
  * @route   POST /api/admin/user/:id/reset-password
  * @desc    Reset user password (admin action)
  * @access  Private (Admin)
@@ -786,6 +1158,79 @@ router.get('/audit-logs',
       success: true,
       message: 'Audit logs retrieved successfully',
       data: logs
+    });
+  })
+);
+
+/**
+ * @route   POST /api/admin/create-admin
+ * @desc    Create a new admin user (for initial setup)
+ * @access  Public (temporary for initial setup)
+ */
+router.post('/create-admin',
+  rateLimitSensitive(3, 60 * 60 * 1000), // 3 admin creations per hour
+  asyncHandler(async (req, res) => {
+    // Check if any admin already exists
+    const existingAdmin = await User.findOne({ role: 'admin' });
+    if (existingAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin user already exists. This endpoint is disabled.'
+      });
+    }
+
+    const { firstName, lastName, email, password, phone } = req.body;
+
+    // Validate required fields
+    if (!firstName || !lastName || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'firstName, lastName, email, and password are required'
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'User with this email already exists'
+      });
+    }
+
+    // Create admin user
+    const adminUser = new User({
+      firstName,
+      lastName,
+      email,
+      password, // Will be hashed by pre-save middleware
+      phone: phone || '0000000000',
+      role: 'admin',
+      isEmailVerified: true, // Auto-verify admin
+      isActive: true
+    });
+
+    await adminUser.save();
+
+    // Log admin creation
+    logger.security('Admin user created', {
+      adminId: adminUser._id,
+      email: adminUser.email,
+      ip: req.ip
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Admin user created successfully',
+      data: {
+        admin: {
+          id: adminUser._id,
+          firstName: adminUser.firstName,
+          lastName: adminUser.lastName,
+          email: adminUser.email,
+          role: adminUser.role
+        }
+      }
     });
   })
 );

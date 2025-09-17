@@ -94,6 +94,14 @@ const Routes = () => {
             } 
           />
           <Route 
+            path="/admin-dashboard/doctor-verification" 
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            } 
+          />
+          <Route 
             path="/patient-dashboard" 
             element={
               <PatientRoute>

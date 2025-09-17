@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { useAuth } from '../../contexts/AuthContext';
 import RoleBasedHeader from '../../components/ui/RoleBasedHeader';
@@ -9,14 +9,26 @@ import QuickActions from './components/QuickActions';
 import RecentActivity from './components/RecentActivity';
 import SystemStatusIndicator from './components/SystemStatusIndicator';
 import UserManagementTable from './components/UserManagementTable';
+import DoctorVerification from './DoctorVerification';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, userRole } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [systemStatus, setSystemStatus] = useState('operational');
+  
+  // Set initial view based on URL path
+  const getInitialView = () => {
+    if (location.pathname.includes('/doctor-verification')) {
+      return 'doctor-verification';
+    }
+    return 'dashboard';
+  };
+  
+  const [activeView, setActiveView] = useState(getInitialView());
 
   useEffect(() => {
     // Check authentication
@@ -108,86 +120,125 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {kpiData.map((kpi, index) => (
-              <KPICard key={index} {...kpi} />
-            ))}
-          </div>
-
-          {/* Main Dashboard Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            {/* Left Column - Analytics */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Analytics Charts */}
-              <div className="bg-card border border-border rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Appointment Trends</h3>
-                <AnalyticsChart data={analyticsData.appointments} />
-              </div>
-
-              <div className="bg-card border border-border rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Revenue Overview</h3>
-                <AnalyticsChart data={analyticsData.revenue} />
-              </div>
-            </div>
-
-            {/* Right Column - Quick Actions & Recent Activity */}
-            <div className="space-y-6">
-              {/* Quick Actions */}
-              <QuickActions />
-
-              {/* Recent Activity */}
-              <RecentActivity activities={recentActivities} />
-            </div>
-          </div>
-
-          {/* User Management */}
+          {/* Navigation Tabs */}
           <div className="mb-8">
-            <div className="bg-card border border-border rounded-lg p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-foreground">User Management</h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  iconName="UserPlus"
-                  onClick={() => navigate('/admin/users/new')}
+            <div className="border-b border-border">
+              <nav className="flex space-x-8">
+                <button
+                  onClick={() => setActiveView('dashboard')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeView === 'dashboard'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                  }`}
                 >
-                  Add User
-                </Button>
-              </div>
-              <UserManagementTable 
-                users={users}
-                onUserAction={handleUserAction}
-              />
+                  <Icon name="LayoutDashboard" size={16} className="mr-2 inline" />
+                  Dashboard
+                </button>
+                <button
+                  onClick={() => setActiveView('doctor-verification')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeView === 'doctor-verification'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                  }`}
+                >
+                  <Icon name="Shield" size={16} className="mr-2 inline" />
+                  Doctor Verification
+                </button>
+              </nav>
             </div>
           </div>
 
-          {/* System Alerts */}
-          <div className="mb-8">
-            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-destructive/20 rounded-full flex items-center justify-center">
-                    <Icon name="AlertTriangle" size={24} className="text-destructive" />
+          {/* Conditional Content Based on Active View */}
+          {activeView === 'dashboard' && (
+            <>
+              {/* KPI Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                {kpiData.map((kpi, index) => (
+                  <KPICard key={index} {...kpi} />
+                ))}
+              </div>
+
+              {/* Main Dashboard Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                {/* Left Column - Analytics */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Analytics Charts */}
+                  <div className="bg-card border border-border rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-foreground mb-4">Appointment Trends</h3>
+                    <AnalyticsChart data={analyticsData.appointments} />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">System Monitoring</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Monitor system health and performance metrics
-                    </p>
+
+                  <div className="bg-card border border-border rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-foreground mb-4">Revenue Overview</h3>
+                    <AnalyticsChart data={analyticsData.revenue} />
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  iconName="Shield"
-                  iconPosition="left"
-                  className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                >
-                  View Logs
-                </Button>
+
+                {/* Right Column - Quick Actions & Recent Activity */}
+                <div className="space-y-6">
+                  {/* Quick Actions */}
+                  <QuickActions onDoctorVerificationClick={() => setActiveView('doctor-verification')} />
+
+                  {/* Recent Activity */}
+                  <RecentActivity activities={recentActivities} />
+                </div>
               </div>
-            </div>
-          </div>
+
+              {/* User Management */}
+              <div className="mb-8">
+                <div className="bg-card border border-border rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-foreground">User Management</h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      iconName="UserPlus"
+                      onClick={() => navigate('/admin/users/new')}
+                    >
+                      Add User
+                    </Button>
+                  </div>
+                  <UserManagementTable 
+                    users={users}
+                    onUserAction={handleUserAction}
+                  />
+                </div>
+              </div>
+
+              {/* System Alerts */}
+              <div className="mb-8">
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-destructive/20 rounded-full flex items-center justify-center">
+                        <Icon name="AlertTriangle" size={24} className="text-destructive" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-foreground">System Monitoring</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Monitor system health and performance metrics
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      iconName="Shield"
+                      iconPosition="left"
+                      className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    >
+                      View Logs
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeView === 'doctor-verification' && (
+            <DoctorVerification />
+          )}
         </div>
       </div>
     </div>

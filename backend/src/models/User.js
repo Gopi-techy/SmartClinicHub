@@ -114,6 +114,22 @@ const userSchema = new mongoose.Schema({
     totalReviews: { type: Number, default: 0 }
   },
   
+  // Doctor Verification System
+  verificationStatus: {
+    type: String,
+    enum: ['unverified', 'pending', 'approved', 'rejected'],
+    default: function() {
+      return this.role === 'doctor' ? 'unverified' : 'approved';
+    }
+  },
+  verificationDetails: {
+    submittedAt: Date,
+    reviewedAt: Date,
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    rejectionReason: String,
+    adminNotes: String
+  },
+  
   // Security and Authentication
   isEmailVerified: { type: Boolean, default: false },
   isPhoneVerified: { type: Boolean, default: false },
@@ -202,6 +218,8 @@ userSchema.index({ role: 1 });
 userSchema.index({ 'professionalInfo.specialization': 1 });
 userSchema.index({ isActive: 1, isDeleted: 1 });
 userSchema.index({ 'address.city': 1, 'address.state': 1 });
+userSchema.index({ verificationStatus: 1 });
+userSchema.index({ role: 1, verificationStatus: 1 });
 
 // Virtual fields
 userSchema.virtual('fullName').get(function() {
@@ -309,6 +327,38 @@ userSchema.methods.toSafeObject = function() {
   return obj;
 };
 
+userSchema.methods.submitForVerification = function() {
+  if (this.role !== 'doctor') {
+    throw new Error('Only doctors can submit for verification');
+  }
+  
+  if (!this.professionalInfo?.licenseNumber) {
+    throw new Error('License number is required for verification');
+  }
+  
+  this.verificationStatus = 'pending';
+  this.verificationDetails.submittedAt = new Date();
+  return this.save();
+};
+
+userSchema.methods.approveVerification = function(adminId, adminNotes = '') {
+  this.verificationStatus = 'approved';
+  this.verificationDetails.reviewedAt = new Date();
+  this.verificationDetails.reviewedBy = adminId;
+  this.verificationDetails.adminNotes = adminNotes;
+  this.verificationDetails.rejectionReason = undefined;
+  return this.save();
+};
+
+userSchema.methods.rejectVerification = function(adminId, rejectionReason, adminNotes = '') {
+  this.verificationStatus = 'rejected';
+  this.verificationDetails.reviewedAt = new Date();
+  this.verificationDetails.reviewedBy = adminId;
+  this.verificationDetails.rejectionReason = rejectionReason;
+  this.verificationDetails.adminNotes = adminNotes;
+  return this.save();
+};
+
 // Static methods
 userSchema.statics.findByCredentials = async function(email, password) {
   const user = await this.findOne({ 
@@ -352,6 +402,24 @@ userSchema.statics.findByRole = function(role) {
     role, 
     isActive: true, 
     isDeleted: false 
+  });
+};
+
+userSchema.statics.findPendingDoctors = function() {
+  return this.find({
+    role: 'doctor',
+    verificationStatus: 'pending',
+    isActive: true,
+    isDeleted: false
+  }).sort({ 'verificationDetails.submittedAt': -1 });
+};
+
+userSchema.statics.findApprovedDoctors = function() {
+  return this.find({
+    role: 'doctor',
+    verificationStatus: 'approved',
+    isActive: true,
+    isDeleted: false
   });
 };
 

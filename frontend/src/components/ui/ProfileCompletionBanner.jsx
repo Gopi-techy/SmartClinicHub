@@ -44,6 +44,8 @@ const ProfileCompletionBanner = ({ user, className = '' }) => {
     }
   };
 
+
+
   return (
     <div className={`rounded-lg border-2 border-dashed p-4 ${getStatusColor(statusMessage.type)} ${className}`}>
       <div className="flex items-start justify-between">

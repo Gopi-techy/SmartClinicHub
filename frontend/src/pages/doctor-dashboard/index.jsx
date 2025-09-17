@@ -9,6 +9,8 @@ import PatientManagementTable from './components/PatientManagementTable';
 import QuickActions from './components/QuickActions';
 import PatientNotesPanel from './components/PatientNotesPanel';
 import ProfileCompletionBanner from '../../components/ui/ProfileCompletionBanner';
+import VerificationStatusBanner from '../../components/ui/VerificationStatusBanner';
+import ToastManager from '../../components/ui/ToastManager';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 
@@ -208,6 +210,9 @@ const DoctorDashboard = () => {
           {/* Profile Completion Banner */}
           <ProfileCompletionBanner user={user} className="mb-6" />
 
+          {/* Verification Status Banner */}
+          <VerificationStatusBanner user={user} className="mb-6" />
+
           {/* Dashboard Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
             {/* Left Column - Schedule and Patients */}
@@ -278,6 +283,9 @@ const DoctorDashboard = () => {
           }}
         />
       )}
+
+      {/* Toast Notifications for real-time updates */}
+      <ToastManager />
     </div>
     </>
   );

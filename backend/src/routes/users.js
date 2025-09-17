@@ -287,7 +287,8 @@ router.get('/doctors',
     const filters = {
       role: 'doctor',
       isActive: true,
-      isDeleted: false
+      isDeleted: false,
+      verificationStatus: 'approved' // Only show verified doctors to patients
     };
 
     if (query) {
@@ -371,7 +372,8 @@ router.get('/doctor/:doctorId',
       _id: doctorId,
       role: 'doctor',
       isActive: true,
-      isDeleted: false
+      isDeleted: false,
+      verificationStatus: 'approved' // Only show verified doctors
     })
     .select('firstName lastName email phone professionalInfo address profilePicture')
     .lean();

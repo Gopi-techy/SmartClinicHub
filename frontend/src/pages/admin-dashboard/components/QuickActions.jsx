@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Button from '../../../components/ui/Button';
 
 
-const QuickActions = ({ onAction }) => {
+const QuickActions = ({ onAction, onDoctorVerificationClick }) => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const handleGenerateReport = async () => {
@@ -14,11 +14,18 @@ const QuickActions = ({ onAction }) => {
 
   const quickActions = [
     {
+      id: 'doctor-verification',
+      label: 'Doctor Verification',
+      icon: 'Shield',
+      variant: 'default',
+      action: () => onDoctorVerificationClick && onDoctorVerificationClick()
+    },
+    {
       id: 'add-user',
       label: 'Add User',
       icon: 'UserPlus',
-      variant: 'default',
-      action: () => onAction('add-user')
+      variant: 'outline',
+      action: () => onAction && onAction('add-user')
     },
     {
       id: 'generate-report',
@@ -33,28 +40,21 @@ const QuickActions = ({ onAction }) => {
       label: 'System Settings',
       icon: 'Settings',
       variant: 'outline',
-      action: () => onAction('system-settings')
+      action: () => onAction && onAction('system-settings')
     },
     {
       id: 'backup',
       label: 'Backup Data',
       icon: 'Database',
       variant: 'outline',
-      action: () => onAction('backup')
-    },
-    {
-      id: 'notifications',
-      label: 'Send Notification',
-      icon: 'Bell',
-      variant: 'outline',
-      action: () => onAction('send-notification')
+      action: () => onAction && onAction('backup')
     },
     {
       id: 'maintenance',
       label: 'Maintenance Mode',
       icon: 'Wrench',
       variant: 'secondary',
-      action: () => onAction('maintenance')
+      action: () => onAction && onAction('maintenance')
     }
   ];
 

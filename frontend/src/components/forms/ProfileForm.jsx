@@ -605,6 +605,70 @@ const ProfileForm = ({ onComplete }) => {
 
   const renderProfessionalInfo = () => (
     <div className="space-y-8">
+      {/* Verification Status */}
+      {user?.verificationStatus && (
+        <div className={`p-4 rounded-xl border ${
+          user.verificationStatus === 'approved' ? 'bg-green-50 border-green-200' :
+          user.verificationStatus === 'pending' ? 'bg-yellow-50 border-yellow-200' :
+          user.verificationStatus === 'rejected' ? 'bg-red-50 border-red-200' :
+          'bg-gray-50 border-gray-200'
+        }`}>
+          <div className="flex items-center space-x-3">
+            <div className={`p-2 rounded-full ${
+              user.verificationStatus === 'approved' ? 'bg-green-100 text-green-600' :
+              user.verificationStatus === 'pending' ? 'bg-yellow-100 text-yellow-600' :
+              user.verificationStatus === 'rejected' ? 'bg-red-100 text-red-600' :
+              'bg-gray-100 text-gray-600'
+            }`}>
+              {user.verificationStatus === 'approved' && (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              {user.verificationStatus === 'pending' && (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              {user.verificationStatus === 'rejected' && (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )}
+              {user.verificationStatus === 'unverified' && (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 14.5C3.498 16.333 4.46 18 6 18z" />
+                </svg>
+              )}
+            </div>
+            <div>
+              <p className={`font-semibold ${
+                user.verificationStatus === 'approved' ? 'text-green-800' :
+                user.verificationStatus === 'pending' ? 'text-yellow-800' :
+                user.verificationStatus === 'rejected' ? 'text-red-800' :
+                'text-gray-800'
+              }`}>
+                {user.verificationStatus === 'approved' && 'Verified Doctor'}
+                {user.verificationStatus === 'pending' && 'Verification Pending'}
+                {user.verificationStatus === 'rejected' && 'Verification Rejected'}
+                {user.verificationStatus === 'unverified' && 'Not Verified'}
+              </p>
+              <p className={`text-sm ${
+                user.verificationStatus === 'approved' ? 'text-green-600' :
+                user.verificationStatus === 'pending' ? 'text-yellow-600' :
+                user.verificationStatus === 'rejected' ? 'text-red-600' :
+                'text-gray-600'
+              }`}>
+                {user.verificationStatus === 'approved' && 'Your professional credentials have been verified by our admin team.'}
+                {user.verificationStatus === 'pending' && 'Your verification request is being reviewed by our admin team.'}
+                {user.verificationStatus === 'rejected' && `Verification was rejected. ${user.verificationDetails?.rejectionReason || 'Please contact support for details.'}`}
+                {user.verificationStatus === 'unverified' && 'Complete your professional information to submit for verification.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Medical Practice */}
       <div className="bg-primary/10 p-6 rounded-xl border border-primary/20">
         <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center">

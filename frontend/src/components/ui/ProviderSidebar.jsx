@@ -93,18 +93,53 @@ const ProviderSidebar = () => {
               </div>
               <div className="flex-1">
                 <p className="font-medium text-foreground">
-                  {user ? (
-                    user.role === 'doctor' 
-                      ? 'Medical Professional' 
-                      : `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User'
-                  ) : 'Provider'}
+                  {user?.role === 'doctor' ? (
+                    user?.professionalInfo?.specialization || 'Specialization not set'
+                  ) : (
+                    user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Provider'
+                  )}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {user?.role === 'doctor' 
-                    ? `${user?.department || 'Internal Medicine'} • ${user?.specialization || 'General Medicine'}`
-                    : (user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Provider')
-                  }
+                  {user?.role === 'doctor' ? (
+                    user?.professionalInfo?.hospitalAffiliation 
+                      ? user.professionalInfo.hospitalAffiliation
+                      : user?.professionalInfo?.experience 
+                      ? `${user.professionalInfo.experience} years experience`
+                      : 'Please complete your professional profile'
+                  ) : (
+                    'Healthcare Provider'
+                  )}
                 </p>
+                
+                {/* Verification Status for Doctors */}
+                {user?.role === 'doctor' && (
+                  <div className="flex items-center mt-2">
+                    {user.verificationStatus === 'approved' && (
+                      <div className="flex items-center text-xs text-green-600">
+                        <Icon name="CheckCircle" size={12} className="mr-1" />
+                        Verified
+                      </div>
+                    )}
+                    {user.verificationStatus === 'pending' && (
+                      <div className="flex items-center text-xs text-yellow-600">
+                        <Icon name="Clock" size={12} className="mr-1" />
+                        Pending Review
+                      </div>
+                    )}
+                    {user.verificationStatus === 'rejected' && (
+                      <div className="flex items-center text-xs text-red-600">
+                        <Icon name="XCircle" size={12} className="mr-1" />
+                        Rejected
+                      </div>
+                    )}
+                    {(!user.verificationStatus || user.verificationStatus === 'unverified') && (
+                      <div className="flex items-center text-xs text-gray-600">
+                        <Icon name="AlertCircle" size={12} className="mr-1" />
+                        Not Verified
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

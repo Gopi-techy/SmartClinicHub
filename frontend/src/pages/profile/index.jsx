@@ -10,6 +10,7 @@ import RoleBasedHeader from '../../components/ui/RoleBasedHeader';
 import PatientSidebar from '../../components/ui/PatientSidebar';
 import ProviderSidebar from '../../components/ui/ProviderSidebar';
 import PatientBottomTabs from '../../components/ui/PatientBottomTabs';
+import VerificationStatusBanner from '../../components/ui/VerificationStatusBanner';
 
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -157,6 +158,9 @@ const ProfilePage = () => {
             </div>
           </div>
         )}
+
+        {/* Doctor Verification Status Banner */}
+        <VerificationStatusBanner user={user} className="mb-6" />
 
         {/* Profile Completion */}
         {profileData && profileData.completionPercentage < 100 && (
