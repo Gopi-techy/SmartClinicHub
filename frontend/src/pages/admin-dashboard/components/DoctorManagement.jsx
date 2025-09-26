@@ -10,6 +10,9 @@ const DoctorManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDoctors, setSelectedDoctors] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [totalItems, setTotalItems] = useState(0);
 
   useEffect(() => {
     fetchDoctors();
@@ -25,8 +28,8 @@ const DoctorManagement = () => {
         throw new Error('No authentication token found');
       }
 
-      // Use the existing user management API with role filter
-      const response = await fetch('/api/users?role=doctor', {
+      // Use the existing user management API with role filter and high limit to get all doctors
+      const response = await fetch('/api/users?role=doctor&limit=1000', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -60,6 +63,7 @@ const DoctorManagement = () => {
         })) || [];
         
         setDoctors(transformedDoctors);
+        setTotalItems(data.data?.pagination?.totalUsers || transformedDoctors.length);
       } else {
         throw new Error(data.message || 'Failed to fetch doctors');
       }
@@ -86,6 +90,29 @@ const DoctorManagement = () => {
     return a[sortConfig.key] < b[sortConfig.key] ? 1 : -1;
   });
 
+  // Client-side pagination
+  const totalPages = Math.ceil(sortedDoctors.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentDoctors = sortedDoctors.slice(startIndex, endIndex);
+
+  const goToPage = (page) => {
+    setCurrentPage(page);
+    setSelectedDoctors([]); // Clear selections when changing pages
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      goToPage(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      goToPage(currentPage + 1);
+    }
+  };
+
   const handleSort = (key) => {
     setSortConfig({
       key,
@@ -102,10 +129,10 @@ const DoctorManagement = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedDoctors.length === sortedDoctors.length) {
+    if (selectedDoctors.length === currentDoctors.length) {
       setSelectedDoctors([]);
     } else {
-      setSelectedDoctors(sortedDoctors.map(doctor => doctor.id));
+      setSelectedDoctors(currentDoctors.map(doctor => doctor.id));
     }
   };
 
@@ -239,7 +266,7 @@ const DoctorManagement = () => {
               <th className="p-4">
                 <input
                   type="checkbox"
-                  checked={selectedDoctors.length === sortedDoctors.length && sortedDoctors.length > 0}
+                  checked={selectedDoctors.length === currentDoctors.length && currentDoctors.length > 0}
                   onChange={handleSelectAll}
                   className="rounded border-input"
                 />
@@ -286,14 +313,14 @@ const DoctorManagement = () => {
             </tr>
           </thead>
           <tbody>
-            {sortedDoctors.length === 0 ? (
+            {currentDoctors.length === 0 ? (
               <tr>
                 <td colSpan="8" className="text-center py-8 text-muted-foreground">
                   {searchQuery ? 'No doctors found matching your search.' : 'No doctors registered yet.'}
                 </td>
               </tr>
             ) : (
-              sortedDoctors.map((doctor) => (
+              currentDoctors.map((doctor) => (
                 <tr key={doctor.id} className="border-b border-border hover:bg-muted/50">
                   <td className="p-4">
                     <input
@@ -368,15 +395,57 @@ const DoctorManagement = () => {
       <div className="p-4 border-t border-border bg-muted/25">
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>
-            Showing {sortedDoctors.length} of {doctors.length} doctors
+            Showing {startIndex + 1}-{Math.min(endIndex, sortedDoctors.length)} of {sortedDoctors.length} doctors
             {searchQuery && ` matching "${searchQuery}"`}
+            {sortedDoctors.length !== doctors.length && ` (${doctors.length} total)`}
           </span>
           <div className="flex items-center space-x-2">
-            <Button size="sm" variant="outline" disabled>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="px-2 py-1 rounded border border-input bg-background text-sm"
+            >
+              <option value={10}>10 per page</option>
+              <option value={20}>20 per page</option>
+              <option value={50}>50 per page</option>
+              <option value={100}>100 per page</option>
+            </select>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={goToPreviousPage}
+              disabled={currentPage === 1}
+            >
               Previous
             </Button>
-            <span className="px-3 py-1 bg-background rounded border">1</span>
-            <Button size="sm" variant="outline" disabled>
+            <span className="flex items-center space-x-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const pageNum = i + 1;
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => goToPage(pageNum)}
+                    className={`px-3 py-1 rounded border text-sm ${
+                      currentPage === pageNum
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background border-input hover:bg-muted'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              {totalPages > 5 && <span className="px-2">...</span>}
+            </span>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={goToNextPage}
+              disabled={currentPage === totalPages}
+            >
               Next
             </Button>
           </div>

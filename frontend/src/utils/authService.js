@@ -292,10 +292,101 @@ function createAuthService() {
           message: error.message || 'Network error during password reset'
         };
       }
+    },
+
+    async getUsers(options = {}) {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          return { success: false, error: 'No authentication token found' };
+        }
+
+        // Build query parameters
+        const queryParams = new URLSearchParams();
+        if (options.limit) queryParams.append('limit', options.limit);
+        if (options.page) queryParams.append('page', options.page);
+        if (options.role) queryParams.append('role', options.role);
+        if (options.search) queryParams.append('search', options.search);
+
+        const url = `${API_BASE_URL}/users${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+        
+        console.log('AuthService: Fetching users from:', url);
+        
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const data = await response.json();
+        console.log('AuthService GetUsers Response:', { response: response.ok, data });
+
+        if (response.ok && data.success) {
+          return {
+            success: true,
+            data: {
+              users: data.data?.users || [],
+              total: data.data?.total || 0,
+              page: data.data?.page || 1,
+              totalPages: data.data?.totalPages || 1
+            }
+          };
+        } else {
+          if (response.status === 401) {
+            throw new Error('Token expired');
+          }
+          throw new Error(data.message || 'Failed to fetch users');
+        }
+      } catch (error) {
+        console.error('GetUsers error:', error);
+        return {
+          success: false,
+          message: error.message || 'Network error during users fetch'
+        };
+      }
+    },
+
+    async getDashboardMetrics() {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          return { success: false, error: 'No authentication token found' };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/admin/metrics`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const data = await response.json();
+        console.log('AuthService getDashboardMetrics Response:', { response: response.ok, data });
+
+        if (response.ok && data.success) {
+          return {
+            success: true,
+            data: data.data
+          };
+        } else {
+          if (response.status === 401) {
+            throw new Error('Token expired');
+          }
+          throw new Error(data.message || 'Failed to fetch metrics');
+        }
+      } catch (error) {
+        console.error('GetDashboardMetrics error:', error);
+        return {
+          success: false,
+          message: error.message || 'Network error during metrics fetch'
+        };
+      }
     }
   };
 }
 
 const authService = createAuthService();
 
+export { authService };
 export default authService;

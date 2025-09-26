@@ -10,6 +10,9 @@ const PatientManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPatients, setSelectedPatients] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [totalItems, setTotalItems] = useState(0);
 
   useEffect(() => {
     fetchPatients();
@@ -25,8 +28,8 @@ const PatientManagement = () => {
         throw new Error('No authentication token found');
       }
 
-      // Use the existing user management API with role filter
-      const response = await fetch('/api/users?role=patient', {
+      // Use the existing user management API with role filter and high limit to get all patients
+      const response = await fetch('/api/users?role=patient&limit=1000', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -58,6 +61,7 @@ const PatientManagement = () => {
         })) || [];
         
         setPatients(transformedPatients);
+        setTotalItems(data.data?.pagination?.totalUsers || transformedPatients.length);
       } else {
         throw new Error(data.message || 'Failed to fetch patients');
       }
@@ -83,6 +87,29 @@ const PatientManagement = () => {
     return a[sortConfig.key] < b[sortConfig.key] ? 1 : -1;
   });
 
+  // Client-side pagination
+  const totalPages = Math.ceil(sortedPatients.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPatients = sortedPatients.slice(startIndex, endIndex);
+
+  const goToPage = (page) => {
+    setCurrentPage(page);
+    setSelectedPatients([]); // Clear selections when changing pages
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      goToPage(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      goToPage(currentPage + 1);
+    }
+  };
+
   const handleSort = (key) => {
     setSortConfig({
       key,
@@ -99,10 +126,10 @@ const PatientManagement = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedPatients.length === sortedPatients.length) {
+    if (selectedPatients.length === currentPatients.length && currentPatients.length > 0) {
       setSelectedPatients([]);
     } else {
-      setSelectedPatients(sortedPatients.map(patient => patient.id));
+      setSelectedPatients(currentPatients.map(patient => patient._id || patient.id));
     }
   };
 
@@ -219,7 +246,7 @@ const PatientManagement = () => {
               <th className="p-4">
                 <input
                   type="checkbox"
-                  checked={selectedPatients.length === sortedPatients.length && sortedPatients.length > 0}
+                  checked={selectedPatients.length === currentPatients.length && currentPatients.length > 0}
                   onChange={handleSelectAll}
                   className="rounded border-input"
                 />
@@ -273,13 +300,13 @@ const PatientManagement = () => {
                 </td>
               </tr>
             ) : (
-              sortedPatients.map((patient) => (
-                <tr key={patient.id} className="border-b border-border hover:bg-muted/50">
+              currentPatients.map((patient) => (
+                <tr key={patient._id || patient.id} className="border-b border-border hover:bg-muted/50">
                   <td className="p-4">
                     <input
                       type="checkbox"
-                      checked={selectedPatients.includes(patient.id)}
-                      onChange={() => handleSelectPatient(patient.id)}
+                      checked={selectedPatients.includes(patient._id || patient.id)}
+                      onChange={() => handleSelectPatient(patient._id || patient.id)}
                       className="rounded border-input"
                     />
                   </td>
@@ -289,48 +316,54 @@ const PatientManagement = () => {
                         <Icon name="User" size={16} className="text-primary" />
                       </div>
                       <div>
-                        <div className="font-medium text-foreground">{patient.name}</div>
-                        <div className="text-sm text-muted-foreground">ID: {patient.id}</div>
+                        <div className="font-medium text-foreground">
+                          {patient.profile?.fullName || patient.name || patient.username}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          ID: {patient._id || patient.id}
+                        </div>
                       </div>
                     </div>
                   </td>
                   <td className="p-4 text-foreground">{patient.email}</td>
-                  <td className="p-4 text-foreground">{patient.phone}</td>
-                  <td className="p-4 text-foreground">{patient.gender}</td>
+                  <td className="p-4 text-foreground">
+                    {patient.profile?.phone || patient.phone || 'N/A'}
+                  </td>
+                  <td className="p-4 text-foreground">
+                    {patient.profile?.gender || patient.gender || 'N/A'}
+                  </td>
                   <td className="p-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(patient.status)}`}>
-                      {patient.status.charAt(0).toUpperCase() + patient.status.slice(1)}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(patient.isActive ? 'active' : 'inactive')}`}>
+                      {patient.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="p-4 text-sm text-muted-foreground">
-                    {patient.lastActive ? new Date(patient.lastActive).toLocaleDateString() : 'Never'}
+                  <td className="p-4 text-foreground">
+                    {patient.lastActive ? new Date(patient.lastActive).toLocaleDateString() : 
+                     patient.createdAt ? new Date(patient.createdAt).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="p-4">
                     <div className="flex items-center justify-end space-x-2">
                       <Button
                         size="sm"
                         variant="ghost"
-                        iconName="Eye"
-                        onClick={() => handlePatientAction('view', patient.id)}
-                      />
+                        onClick={() => handlePatientAction('view', patient._id || patient.id)}
+                      >
+                        <Icon name="Eye" size={14} />
+                      </Button>
                       <Button
                         size="sm"
                         variant="ghost"
-                        iconName="Edit"
-                        onClick={() => handlePatientAction('edit', patient.id)}
-                      />
+                        onClick={() => handlePatientAction('edit', patient._id || patient.id)}
+                      >
+                        <Icon name="Edit" size={14} />
+                      </Button>
                       <Button
                         size="sm"
                         variant="ghost"
-                        iconName="MessageCircle"
-                        onClick={() => handlePatientAction('message', patient.id)}
-                      />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        iconName="MoreHorizontal"
-                        onClick={() => handlePatientAction('more', patient.id)}
-                      />
+                        onClick={() => handlePatientAction('delete', patient._id || patient.id)}
+                      >
+                        <Icon name="Trash2" size={14} />
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -340,19 +373,59 @@ const PatientManagement = () => {
         </table>
       </div>
 
-      {/* Footer */}
+      {/* Pagination Footer */}
       <div className="p-4 border-t border-border bg-muted/25">
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            Showing {sortedPatients.length} of {patients.length} patients
-            {searchQuery && ` matching "${searchQuery}"`}
-          </span>
+          <div className="flex items-center gap-4">
+            <span>
+              Showing {startIndex + 1}-{Math.min(endIndex, sortedPatients.length)} of {sortedPatients.length} patients
+              {searchQuery && ` matching "${searchQuery}"`}
+            </span>
+            <div className="flex items-center gap-2">
+              <span>Items per page:</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="border rounded px-2 py-1 text-sm"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
           <div className="flex items-center space-x-2">
-            <Button size="sm" variant="outline" disabled>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={goToPreviousPage}
+              disabled={currentPage === 1}
+            >
               Previous
             </Button>
-            <span className="px-3 py-1 bg-background rounded border">1</span>
-            <Button size="sm" variant="outline" disabled>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => goToPage(page)}
+                className={`px-3 py-1 rounded border text-sm ${
+                  currentPage === page 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-background hover:bg-muted'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={goToNextPage}
+              disabled={currentPage === totalPages}
+            >
               Next
             </Button>
           </div>

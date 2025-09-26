@@ -24,7 +24,7 @@ const KPICard = ({ title, value, change, changeType, icon, color = 'primary' }) 
   const getTrendColor = () => {
     if (changeType === 'increase') return 'text-success';
     if (changeType === 'decrease') return 'text-error';
-    return 'text-muted-foreground';
+    return 'text-foreground'; // Changed from text-muted-foreground to text-foreground for better visibility
   };
 
   return (
