@@ -282,6 +282,152 @@ const getAppointmentById = async (req, res) => {
 };
 
 /**
+ * @desc    Get all registered patients in the system
+ * @route   GET /api/appointments/doctor/all-patients
+ * @access  Private (Doctor)
+ */
+const getAllPatients = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = '' } = req.query;
+    
+    // Build search query for patients
+    let searchQuery = { role: 'patient' };
+    if (search) {
+      searchQuery.$or = [
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Get all registered patients (not just those with appointments)
+    const patients = await User.find(searchQuery)
+      .select('firstName lastName email phone dateOfBirth gender profilePicture createdAt')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await User.countDocuments(searchQuery);
+
+    // Transform data to match frontend expectations
+    const transformedPatients = patients.map((patient, index) => ({
+      id: patient._id,
+      name: `${patient.firstName} ${patient.lastName}`,
+      patientId: patient._id,
+      appointmentTime: 'N/A', // No appointment data
+      duration: 'N/A',
+      reason: 'No appointments yet',
+      status: 'Registered',
+      priority: 'normal',
+      appointmentDate: null,
+      totalAppointments: 0,
+      type: 'N/A',
+      patient: {
+        firstName: patient.firstName,
+        lastName: patient.lastName,
+        email: patient.email,
+        phone: patient.phone || 'N/A',
+        dateOfBirth: patient.dateOfBirth,
+        gender: patient.gender || 'N/A',
+        profilePicture: patient.profilePicture,
+        registeredDate: patient.createdAt
+      }
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: transformedPatients.length,
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / limit),
+      patients: transformedPatients
+    });
+  } catch (error) {
+    logger.error('Get doctor all patients error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching patients'
+    });
+  }
+};
+
+/**
+ * @desc    Get all appointments for a doctor (with pagination)
+ * @route   GET /api/appointments/doctor/patients
+ * @access  Private (Doctor)
+ */
+const getDoctorPatients = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+    const { status, limit = 50, page = 1 } = req.query;
+
+    let query = {
+      doctor: doctorId,
+      isDeleted: false
+    };
+
+    // Add status filter if provided
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const appointments = await Appointment.find(query)
+      .populate('patient', 'firstName lastName email phone dateOfBirth gender profilePicture')
+      .populate('doctor', 'firstName lastName professionalInfo.specialization')
+      .sort({ appointmentDate: -1, startTime: -1 }) // Most recent first
+      .limit(parseInt(limit))
+      .skip(skip)
+      .lean();
+
+    // Get total count for pagination
+    const total = await Appointment.countDocuments(query);
+
+    // Transform data to match frontend expectations
+    const patients = appointments.map(appointment => ({
+      id: appointment._id,
+      name: `${appointment.patient.firstName} ${appointment.patient.lastName}`,
+      patientId: appointment.patient._id,
+      appointmentTime: appointment.startTime,
+      duration: appointment.duration || 30,
+      reason: appointment.chiefComplaint || appointment.symptoms?.[0] || 'General Consultation',
+      status: appointment.status,
+      priority: appointment.urgencyLevel || 'normal',
+      appointmentDate: appointment.appointmentDate,
+      type: appointment.type,
+      mode: appointment.mode,
+      bookingReference: appointment.bookingReference,
+      patient: {
+        firstName: appointment.patient.firstName,
+        lastName: appointment.patient.lastName,
+        email: appointment.patient.email,
+        phone: appointment.patient.phone,
+        dateOfBirth: appointment.patient.dateOfBirth,
+        gender: appointment.patient.gender,
+        profilePicture: appointment.patient.profilePicture
+      }
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: patients.length,
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / limit),
+      patients
+    });
+  } catch (error) {
+    logger.error('Get doctor patients error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching patients'
+    });
+  }
+};
+
+/**
  * @desc    Cancel appointment
  * @route   DELETE /api/appointments/:id
  * @access  Private
@@ -366,5 +512,7 @@ module.exports = {
   getAppointments,
   updateAppointmentStatus,
   getAppointmentById,
+  getDoctorPatients,
+  getAllPatients,
   cancelAppointment
 };

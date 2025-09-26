@@ -83,12 +83,14 @@ const RoleBasedHeader = () => {
           </div>
 
           {/* Navigation Links */}
-          <nav className="hidden md:flex items-center space-x-6">
+          <nav className="hidden lg:flex items-center space-x-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => navigate(`/${userRole}-dashboard`)}
+              className="whitespace-nowrap"
             >
+              <Icon name="LayoutDashboard" size={16} className="mr-1" />
               Dashboard
             </Button>
             
@@ -98,15 +100,19 @@ const RoleBasedHeader = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/appointment-booking')}
+                  className="whitespace-nowrap"
                 >
-                  Book Appointment
+                  <Icon name="Calendar" size={16} className="mr-1" />
+                  Appointments
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/health-records-management')}
+                  className="whitespace-nowrap"
                 >
-                  Health Records
+                  <Icon name="FileText" size={16} className="mr-1" />
+                  Records
                 </Button>
               </>
             )}
@@ -117,42 +123,58 @@ const RoleBasedHeader = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/appointment-booking')}
+                  className="whitespace-nowrap"
                 >
-                  Manage Appointments
+                  <Icon name="Calendar" size={16} className="mr-1" />
+                  Appointments
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/health-records-management')}
+                  className="whitespace-nowrap"
                 >
-                  Patient Records
+                  <Icon name="FileText" size={16} className="mr-1" />
+                  Records
                 </Button>
               </>
             )}
             
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/messages')}
-            >
-              Messages
-            </Button>
+            {userRole === 'admin' && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/admin-dashboard/doctor-verification')}
+                  className="whitespace-nowrap"
+                >
+                  <Icon name="Shield" size={16} className="mr-1" />
+                  Verification
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/admin-dashboard/patient-management')}
+                  className="whitespace-nowrap"
+                >
+                  <Icon name="User" size={16} className="mr-1" />
+                  Patients
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/admin-dashboard/doctor-management')}
+                  className="whitespace-nowrap"
+                >
+                  <Icon name="Stethoscope" size={16} className="mr-1" />
+                  Doctors
+                </Button>
+              </>
+            )}
           </nav>
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
-            {/* Notifications */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="relative"
-            >
-              <Icon name="Bell" size={20} />
-              <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                3
-              </span>
-            </Button>
-
             {/* User Dropdown */}
             <div className="relative">
               <Button
@@ -231,17 +253,10 @@ const RoleBasedHeader = () => {
       {/* Mobile Navigation */}
       <div className="md:hidden border-t border-border">
         <div className="px-4 py-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-center">
             <span className={`text-sm font-medium ${getRoleColor(userRole)}`}>
               {getRoleDisplayName(userRole)}
             </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/messages')}
-            >
-              <Icon name="MessageCircle" size={20} />
-            </Button>
           </div>
         </div>
       </div>

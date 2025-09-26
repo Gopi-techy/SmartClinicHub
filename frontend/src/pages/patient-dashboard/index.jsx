@@ -18,7 +18,8 @@ import Button from '../../components/ui/Button';
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
-  const { user, userRole } = useAuth();
+  const { user, userRole, isAuthenticated, isLoading } = useAuth();
+  
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -28,7 +29,11 @@ const PatientDashboard = () => {
 
   useEffect(() => {
     // Check authentication
-    if (!user || userRole !== 'patient') {
+    if (isLoading) {
+      return;
+    }
+    
+    if (!isAuthenticated || !user || userRole !== 'patient') {
       navigate('/login-registration');
       return;
     }
@@ -46,7 +51,7 @@ const PatientDashboard = () => {
     }
 
     return () => clearInterval(timer);
-  }, [navigate, user, userRole]);
+  }, [navigate, user, userRole, isAuthenticated, isLoading]);
 
   // Fetch dashboard data on component mount
   useEffect(() => {
@@ -202,7 +207,7 @@ const PatientDashboard = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
-                  {getGreeting()}, {user.firstName || 'Patient'}!
+                  {getGreeting()}, {user?.firstName || user?.name || 'Patient'}!
                 </h1>
                 <p className="text-muted-foreground">
                   {currentTime.toLocaleDateString('en-US', { 

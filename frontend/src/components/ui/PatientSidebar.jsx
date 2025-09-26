@@ -45,8 +45,8 @@ const PatientSidebar = () => {
       id: 'messages',
       label: 'Messages',
       icon: 'MessageCircle',
-      path: '/messages',
-      isActive: location.pathname === '/messages'
+      path: '/messaging',
+      isActive: location.pathname === '/messaging'
     }
   ];
 

@@ -1,4 +1,15 @@
 // Profile completion utility functions
+
+// Check if doctor has minimum requirements for verification
+export const isDoctorVerificationReady = (user) => {
+  if (!user || user.role !== 'doctor') return false;
+  
+  const hasLicenseNumber = user.professionalInfo?.licenseNumber?.trim();
+  const hasSpecialization = user.professionalInfo?.specialization?.trim();
+  
+  return hasLicenseNumber && hasSpecialization;
+};
+
 export const checkProfileCompletion = (user) => {
   if (!user) return { isComplete: false, completionPercentage: 0, missingFields: [] };
 
@@ -29,15 +40,17 @@ export const checkProfileCompletion = (user) => {
       { key: 'medicalInfo.bloodGroup', label: 'Blood Group' }
     ],
     doctor: [
-      { key: 'professionalInfo.specialization', label: 'Specialization' },
-      { key: 'professionalInfo.licenseNumber', label: 'License Number' },
-      { key: 'professionalInfo.experience', label: 'Years of Experience' },
-      { key: 'professionalInfo.qualifications', label: 'Qualifications' },
-      { key: 'professionalInfo.consultationFee', label: 'Consultation Fee' },
-      { key: 'address.street', label: 'Street Address' },
-      { key: 'address.city', label: 'City' },
-      { key: 'address.state', label: 'State' },
-      { key: 'address.zipCode', label: 'ZIP Code' }
+      // Verification essential fields (higher priority)
+      { key: 'professionalInfo.specialization', label: 'Specialization', priority: 'essential' },
+      { key: 'professionalInfo.licenseNumber', label: 'License Number', priority: 'essential' },
+      // Additional professional fields (nice to have)
+      { key: 'professionalInfo.experience', label: 'Years of Experience', priority: 'additional' },
+      { key: 'professionalInfo.qualifications', label: 'Qualifications', priority: 'additional' },
+      { key: 'professionalInfo.consultationFee', label: 'Consultation Fee', priority: 'additional' },
+      { key: 'address.street', label: 'Street Address', priority: 'additional' },
+      { key: 'address.city', label: 'City', priority: 'additional' },
+      { key: 'address.state', label: 'State', priority: 'additional' },
+      { key: 'address.zipCode', label: 'ZIP Code', priority: 'additional' }
     ]
   };
 
@@ -46,6 +59,69 @@ export const checkProfileCompletion = (user) => {
     ...commonRequiredFields,
     ...(roleSpecificFields[user.role] || [])
   ];
+
+  // For doctors, handle verification readiness separately
+  if (user.role === 'doctor') {
+    const essentialFields = allRequiredFields.filter(f => !f.priority || f.priority === 'essential');
+    const additionalFields = allRequiredFields.filter(f => f.priority === 'additional');
+    
+    // Check essential fields first
+    let essentialCompleted = 0;
+    essentialFields.forEach(field => {
+      const value = getNestedValue(user, field.key);
+      if (value !== null && value !== undefined && value !== '') {
+        if (Array.isArray(value) && value.length > 0) {
+          essentialCompleted++;
+        } else if (!Array.isArray(value)) {
+          essentialCompleted++;
+        } else {
+          missingFields.push(field.label);
+        }
+      } else {
+        missingFields.push(field.label);
+      }
+    });
+    
+    // Check additional fields
+    let additionalCompleted = 0;
+    additionalFields.forEach(field => {
+      const value = getNestedValue(user, field.key);
+      if (value !== null && value !== undefined && value !== '') {
+        if (Array.isArray(value) && value.length > 0) {
+          additionalCompleted++;
+        } else if (!Array.isArray(value)) {
+          additionalCompleted++;
+        } else {
+          missingFields.push(field.label);
+        }
+      } else {
+        missingFields.push(field.label);
+      }
+    });
+    
+    totalFields = allRequiredFields.length;
+    completedFields = essentialCompleted + additionalCompleted;
+    
+    // If essential fields are complete, give a boost to completion percentage
+    const isVerificationReady = essentialCompleted === essentialFields.length;
+    let completionPercentage = Math.round((completedFields / totalFields) * 100);
+    
+    // Boost completion percentage if verification ready
+    if (isVerificationReady && completionPercentage < 60) {
+      completionPercentage = Math.max(completionPercentage, 60);
+    }
+    
+    const isComplete = completionPercentage >= 90;
+    
+    return {
+      isComplete,
+      completionPercentage,
+      missingFields,
+      completedFields,
+      totalFields,
+      isVerificationReady
+    };
+  }
 
   totalFields = allRequiredFields.length;
 
@@ -88,7 +164,16 @@ const getNestedValue = (obj, path) => {
 
 // Get profile completion status message
 export const getProfileStatusMessage = (completionData) => {
-  const { completionPercentage, missingFields } = completionData;
+  const { completionPercentage, missingFields, isVerificationReady } = completionData;
+  
+  // Special handling for doctors who are verification ready
+  if (isVerificationReady !== undefined && isVerificationReady) {
+    return {
+      type: 'info',
+      title: 'Ready for Verification',
+      message: 'Your essential professional information is complete. Complete your full profile for a better patient experience.'
+    };
+  }
   
   if (completionPercentage >= 90) {
     return {

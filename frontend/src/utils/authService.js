@@ -14,8 +14,10 @@ function createAuthService() {
         });
 
         const data = await response.json();
+        console.log('AuthService Login Response:', { response: response.ok, data });
 
         if (response.ok && data.success) {
+          console.log('AuthService Login Success - User data:', data.user);
           return {
             success: true,
             token: data.token,
@@ -155,8 +157,10 @@ function createAuthService() {
         });
 
         const data = await response.json();
+        console.log('AuthService GetSession Response:', { response: response.ok, data });
 
         if (response.ok && data.success) {
+          console.log('AuthService GetSession Success - User data:', data.data?.user);
           return {
             success: true,
             user: data.data.user

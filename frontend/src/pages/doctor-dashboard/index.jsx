@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { useAuth } from '../../contexts/AuthContext';
 import RoleBasedHeader from '../../components/ui/RoleBasedHeader';
 import ProviderSidebar from '../../components/ui/ProviderSidebar';
 import TodaySchedule from './components/TodaySchedule';
 import PatientManagementTable from './components/PatientManagementTable';
+import AllPatients from './components/AllPatients';
 import QuickActions from './components/QuickActions';
 import PatientNotesPanel from './components/PatientNotesPanel';
 import ProfileCompletionBanner from '../../components/ui/ProfileCompletionBanner';
@@ -16,6 +17,7 @@ import Button from '../../components/ui/Button';
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, userRole } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedPatient, setSelectedPatient] = useState(null);
@@ -41,76 +43,110 @@ const DoctorDashboard = () => {
 
   // State for patient management
   const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Initialize with mock data
+  // Fetch real patient data from backend
+  const fetchPatients = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+            const response = await fetch('/api/appointments/doctor/patients', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Transform the data to match frontend expectations
+        const transformedPatients = data.patients.map(patient => ({
+          id: patient.id,
+          name: patient.name,
+          patientId: patient.patientId,
+          appointmentTime: formatTime(patient.appointmentTime),
+          duration: patient.duration,
+          reason: patient.reason,
+          status: mapStatus(patient.status),
+          priority: patient.priority === 'high' ? 'high' : patient.priority === 'medium' ? 'medium' : 'low',
+          bookingReference: patient.bookingReference,
+          type: patient.type,
+          mode: patient.mode,
+          patient: patient.patient
+        }));
+        
+        setPatients(transformedPatients);
+        
+        // Also update today's schedule with the same data
+        const scheduleData = transformedPatients.slice(0, 5).map((patient, index) => ({
+          id: patient.id,
+          time: patient.appointmentTime,
+          patientName: patient.name,
+          patientAge: calculateAge(patient.patient?.dateOfBirth),
+          appointmentType: patient.type?.charAt(0).toUpperCase() + patient.type?.slice(1) || 'Consultation',
+          status: patient.status,
+          priority: patient.priority
+        }));
+        
+        setTodaySchedule(scheduleData);
+      } else {
+        setError(data.message || 'Failed to fetch patients');
+      }
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+      setError('Failed to load patient data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper functions
+  const formatTime = (timeString) => {
+    if (!timeString) return '';
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  const mapStatus = (status) => {
+    const statusMap = {
+      'scheduled': 'confirmed',
+      'confirmed': 'confirmed',
+      'in-progress': 'in-progress',
+      'waiting': 'waiting',
+      'completed': 'completed',
+      'cancelled': 'cancelled'
+    };
+    return statusMap[status] || status;
+  };
+
+  const calculateAge = (dateOfBirth) => {
+    if (!dateOfBirth) return null;
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Fetch data when component mounts and user is authenticated
   useEffect(() => {
     if (user && userRole === 'doctor') {
-      // Mock today's schedule
-      setTodaySchedule([
-        {
-          id: 1,
-          time: '09:00 AM',
-          patientName: 'John Smith',
-          patientAge: 34,
-          appointmentType: 'Consultation',
-          status: 'confirmed',
-          priority: 'normal'
-        },
-        {
-          id: 2,
-          time: '10:30 AM',
-          patientName: 'Sarah Johnson',
-          patientAge: 28,
-          appointmentType: 'Follow-up',
-          status: 'confirmed',
-          priority: 'normal'
-        },
-        {
-          id: 3,
-          time: '02:00 PM',
-          patientName: 'Michael Brown',
-          patientAge: 45,
-          appointmentType: 'Emergency',
-          status: 'urgent',
-          priority: 'high'
-        }
-      ]);
-
-      // Mock patients
-      setPatients([
-        {
-          id: 1,
-          name: 'John Smith',
-          patientId: 'P001',
-          appointmentTime: '09:00 AM',
-          duration: 30,
-          reason: 'Hypertension Follow-up',
-          status: 'confirmed',
-          priority: 'normal'
-        },
-        {
-          id: 2,
-          name: 'Sarah Johnson',
-          patientId: 'P002',
-          appointmentTime: '10:30 AM',
-          duration: 45,
-          reason: 'Diabetes Consultation',
-          status: 'waiting',
-          priority: 'normal'
-        },
-        {
-          id: 3,
-          name: 'Michael Brown',
-          patientId: 'P003',
-          appointmentTime: '02:00 PM',
-          duration: 60,
-          reason: 'Chest Pain Emergency',
-          status: 'in-progress',
-          priority: 'high'
-        }
-      ]);
-
-
+      fetchPatients();
     }
   }, [user, userRole]);
 
@@ -213,23 +249,55 @@ const DoctorDashboard = () => {
           {/* Verification Status Banner */}
           <VerificationStatusBanner user={user} className="mb-6" />
 
-          {/* Dashboard Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-            {/* Left Column - Schedule and Patients */}
-            <div className="lg:col-span-3 space-y-6">
-              {/* Today's Schedule */}
-              <TodaySchedule 
-                appointments={todaySchedule}
-                onAppointmentClick={handleStartAppointment}
-                onReschedule={handleRescheduleAppointment}
-              />
+          {/* Conditional Content Based on Route */}
+          {location.pathname === '/doctor-dashboard/all-patients' ? (
+            <AllPatients />
+          ) : (
+            <>
+              {/* Dashboard Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+                {/* Left Column - Schedule and Patients */}
+                <div className="lg:col-span-3 space-y-6">
+                  {/* Today's Schedule */}
+                  <TodaySchedule 
+                    appointments={todaySchedule}
+                    onAppointmentClick={handleStartAppointment}
+                    onReschedule={handleRescheduleAppointment}
+                  />
 
-              {/* Patient Management */}
-              <PatientManagementTable 
-                patients={patients}
-                onPatientSelect={handlePatientSelect}
-                onCreatePrescription={(patient) => console.log('Create prescription for:', patient)}
-              />
+                  {/* Patient Management */}
+              {loading ? (
+                <div className="bg-card rounded-lg border border-border p-6">
+                  <div className="flex items-center justify-center py-12">
+                    <div className="flex items-center space-x-3">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                      <span className="text-muted-foreground">Loading patients...</span>
+                    </div>
+                  </div>
+                </div>
+              ) : error ? (
+                <div className="bg-card rounded-lg border border-border p-6">
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                      <Icon name="AlertCircle" size={48} className="mx-auto text-destructive mb-4" />
+                      <p className="text-destructive mb-4">{error}</p>
+                      <Button
+                        variant="outline"
+                        onClick={fetchPatients}
+                        iconName="RefreshCw"
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <PatientManagementTable 
+                  patients={patients}
+                  onPatientSelect={handlePatientSelect}
+                  onCreatePrescription={(patient) => console.log('Create prescription for:', patient)}
+                />
+              )}
             </div>
 
             {/* Right Column - Sidebar */}
@@ -243,32 +311,34 @@ const DoctorDashboard = () => {
             </div>
           </div>
 
-          {/* Emergency Alerts */}
-          <div className="mb-8">
-            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-destructive/20 rounded-full flex items-center justify-center">
-                    <Icon name="AlertTriangle" size={24} className="text-destructive" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">Emergency Response</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Quick access to emergency protocols and patient alerts
-                    </p>
+              {/* Emergency Alerts */}
+              <div className="mb-8">
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-destructive/20 rounded-full flex items-center justify-center">
+                        <Icon name="AlertTriangle" size={24} className="text-destructive" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-foreground">Emergency Response</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Quick access to emergency protocols and patient alerts
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      iconName="Shield"
+                      iconPosition="left"
+                      className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    >
+                      Emergency Mode
+                    </Button>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  iconName="Shield"
-                  iconPosition="left"
-                  className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                >
-                  Emergency Mode
-                </Button>
               </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       </div>
 

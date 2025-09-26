@@ -18,22 +18,20 @@ const LoginRegistration = () => {
   useEffect(() => {
     // Check if user is already authenticated
     // Only navigate if successfully authenticated and no errors
-    // Add a delay to ensure error state is properly set and avoid navigation during registration
+    // Add a small delay to ensure error state is properly set
     const navigationTimeout = setTimeout(() => {
-      if (isAuthenticated && userRole && !error && !isLoading && !isSubmitting && activeTab !== 'register') {
+      if (isAuthenticated && userRole && !error && !isLoading && !isSubmitting) {
         console.log('Login page: Navigating to dashboard for role:', userRole);
         navigate(`/${userRole}-dashboard`);
       } else if (error) {
         console.log('Login page: Not navigating due to error:', error);
       } else if (isLoading || isSubmitting) {
         console.log('Login page: Not navigating due to loading/submitting state');
-      } else if (activeTab === 'register') {
-        console.log('Login page: Not navigating while on register tab');
       }
-    }, 200); // Increased delay
+    }, 100);
 
     return () => clearTimeout(navigationTimeout);
-  }, [isAuthenticated, userRole, navigate, error, isLoading, isSubmitting, activeTab]);
+  }, [isAuthenticated, userRole, navigate, error, isLoading, isSubmitting]);
 
   useEffect(() => {
     // Clear any existing errors when switching tabs

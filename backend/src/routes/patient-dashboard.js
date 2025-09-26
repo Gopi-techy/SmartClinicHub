@@ -233,4 +233,223 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// Missing routes that frontend expects
+// GET /api/patient-dashboard/upcoming-appointments
+router.get('/upcoming-appointments', async (req, res) => {
+  try {
+    const patientId = req.user.id;
+    const Appointment = require('../models/Appointment');
+
+    const upcomingAppointments = await Appointment.find({
+      patient: patientId,
+      appointmentDate: { $gte: new Date() },
+      status: { $in: ['confirmed', 'scheduled'] }
+    })
+    .sort({ appointmentDate: 1 })
+    .limit(5)
+    .populate('doctor', 'firstName lastName professionalInfo.specialization')
+    .lean();
+
+    res.json({
+      success: true,
+      data: upcomingAppointments
+    });
+
+  } catch (error) {
+    console.error('Get upcoming appointments error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch upcoming appointments'
+    });
+  }
+});
+
+// GET /api/patient-dashboard/health-metrics
+router.get('/health-metrics', async (req, res) => {
+  try {
+    const patientId = req.user.id;
+    const HealthRecord = require('../models/HealthRecord');
+
+    // Get latest vital signs
+    const latestVitals = await HealthRecord.findOne({
+      patient: patientId,
+      recordType: 'vital-signs',
+      'vitalSigns.0': { $exists: true }
+    })
+    .sort({ recordDate: -1 })
+    .select('vitalSigns recordDate')
+    .lean();
+
+    // Get recent trends (last 30 days)
+    const dateFrom = new Date();
+    dateFrom.setDate(dateFrom.getDate() - 30);
+
+    const trends = await HealthRecord.find({
+      patient: patientId,
+      recordType: 'vital-signs',
+      recordDate: { $gte: dateFrom },
+      'vitalSigns.0': { $exists: true }
+    })
+    .sort({ recordDate: 1 })
+    .select('vitalSigns recordDate')
+    .limit(10)
+    .lean();
+
+    const metrics = {
+      latestVitals: latestVitals?.vitalSigns?.[0] || null,
+      lastRecorded: latestVitals?.recordDate || null,
+      trends: trends.map(record => ({
+        date: record.recordDate,
+        vitals: record.vitalSigns[0]
+      }))
+    };
+
+    res.json({
+      success: true,
+      data: metrics
+    });
+
+  } catch (error) {
+    console.error('Get health metrics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch health metrics'
+    });
+  }
+});
+
+// GET /api/patient-dashboard/prescription-status
+router.get('/prescription-status', async (req, res) => {
+  try {
+    const patientId = req.user.id;
+    const Prescription = require('../models/Prescription');
+
+    const prescriptions = await Prescription.find({
+      patient: patientId
+    })
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .populate('prescribedBy', 'firstName lastName')
+    .lean();
+
+    const statusSummary = {
+      active: prescriptions.filter(p => p.status === 'active').length,
+      completed: prescriptions.filter(p => p.status === 'completed').length,
+      expired: prescriptions.filter(p => p.status === 'expired').length,
+      total: prescriptions.length
+    };
+
+    const recentPrescriptions = prescriptions.slice(0, 5).map(prescription => ({
+      _id: prescription._id,
+      medications: prescription.medications,
+      status: prescription.status,
+      prescribedBy: prescription.prescribedBy,
+      startDate: prescription.startDate,
+      endDate: prescription.endDate,
+      createdAt: prescription.createdAt
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        summary: statusSummary,
+        recent: recentPrescriptions
+      }
+    });
+
+  } catch (error) {
+    console.error('Get prescription status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch prescription status'
+    });
+  }
+});
+
+// GET /api/patient-dashboard/recent-activities
+router.get('/recent-activities', async (req, res) => {
+  try {
+    const patientId = req.user.id;
+    const Appointment = require('../models/Appointment');
+    const HealthRecord = require('../models/HealthRecord');
+    const Prescription = require('../models/Prescription');
+
+    // Get recent appointments
+    const recentAppointments = await Appointment.find({
+      patient: patientId,
+      appointmentDate: { $lte: new Date() }
+    })
+    .sort({ appointmentDate: -1 })
+    .limit(3)
+    .populate('doctor', 'firstName lastName')
+    .lean();
+
+    // Get recent health records
+    const recentRecords = await HealthRecord.find({
+      patient: patientId
+    })
+    .sort({ recordDate: -1 })
+    .limit(3)
+    .populate('recordedBy', 'firstName lastName')
+    .lean();
+
+    // Get recent prescriptions
+    const recentPrescriptions = await Prescription.find({
+      patient: patientId
+    })
+    .sort({ createdAt: -1 })
+    .limit(3)
+    .populate('prescribedBy', 'firstName lastName')
+    .lean();
+
+    // Combine and format activities
+    const activities = [];
+
+    recentAppointments.forEach(apt => {
+      activities.push({
+        type: 'appointment',
+        title: `Appointment with Dr. ${apt.doctor.firstName} ${apt.doctor.lastName}`,
+        description: `${apt.type} appointment - ${apt.status}`,
+        date: apt.appointmentDate,
+        icon: 'calendar'
+      });
+    });
+
+    recentRecords.forEach(record => {
+      activities.push({
+        type: 'health-record',
+        title: `${record.recordType.replace('-', ' ')} recorded`,
+        description: `Recorded by ${record.recordedBy?.firstName || 'System'} ${record.recordedBy?.lastName || ''}`,
+        date: record.recordDate,
+        icon: 'file-text'
+      });
+    });
+
+    recentPrescriptions.forEach(prescription => {
+      activities.push({
+        type: 'prescription',
+        title: 'New prescription issued',
+        description: `${prescription.medications.length} medication(s) prescribed by Dr. ${prescription.prescribedBy.firstName} ${prescription.prescribedBy.lastName}`,
+        date: prescription.createdAt,
+        icon: 'pill'
+      });
+    });
+
+    // Sort by date (most recent first)
+    activities.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json({
+      success: true,
+      data: activities.slice(0, 10) // Return top 10 activities
+    });
+
+  } catch (error) {
+    console.error('Get recent activities error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch recent activities'
+    });
+  }
+});
+
 module.exports = router;

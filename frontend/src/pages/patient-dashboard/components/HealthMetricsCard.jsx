@@ -3,6 +3,9 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 
 const HealthMetricsCard = ({ metrics = [] }) => {
+  // Ensure metrics is always an array
+  const safeMetrics = Array.isArray(metrics) ? metrics : [];
+  
   const getMetricIcon = (type) => {
     switch (type) {
       case 'blood_pressure':
@@ -75,7 +78,7 @@ const HealthMetricsCard = ({ metrics = [] }) => {
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {metrics.map((metric, index) => (
+            {safeMetrics.map((metric, index) => (
             <div key={index} className="bg-muted/30 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <Icon 

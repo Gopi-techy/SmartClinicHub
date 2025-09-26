@@ -102,10 +102,14 @@ const VerificationStatusBanner = ({ user, className = '' }) => {
   const hasSpecialization = user.professionalInfo?.specialization?.trim();
   const isProfessionalInfoComplete = hasLicenseNumber && hasSpecialization;
   
-  // If professional info is complete but status is still unverified, 
-  // treat it as "processing" instead of showing "complete profile"
-  if (verificationStatus === 'unverified' && isProfessionalInfoComplete) {
-    verificationStatus = 'pending'; // Treat as pending since profile is complete
+  // Only show verification banner if:
+  // 1. Professional info is incomplete (show completion prompt), OR
+  // 2. Verification has been submitted (pending/approved/rejected)
+  const hasSubmittedForVerification = user.verificationDetails?.submittedAt;
+  const shouldShowBanner = !isProfessionalInfoComplete || hasSubmittedForVerification;
+  
+  if (!shouldShowBanner) {
+    return null; // Let ProfileCompletionBanner handle the profile completion
   }
 
   const statusConfig = {
@@ -125,9 +129,7 @@ const VerificationStatusBanner = ({ user, className = '' }) => {
       iconColor: 'text-yellow-600',
       icon: 'Clock',
       title: 'Verification Pending',
-      message: user.verificationDetails?.submittedAt 
-        ? 'Your verification request is being reviewed by our admin team. This usually takes 1-2 business days.'
-        : 'Your profile is complete! Your verification request has been submitted and is being processed.',
+      message: 'Your verification request is being reviewed by our admin team. This usually takes 1-2 business days.',
       action: 'View Status',
       actionVariant: 'outline'
     },

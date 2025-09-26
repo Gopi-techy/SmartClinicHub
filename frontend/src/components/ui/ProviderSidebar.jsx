@@ -40,11 +40,18 @@ const ProviderSidebar = () => {
       isActive: location.pathname === '/health-records-management'
     },
     {
+      id: 'all-patients',
+      label: 'All Patients',
+      icon: 'UserCheck',
+      path: '/doctor-dashboard/all-patients',
+      isActive: location.pathname === '/doctor-dashboard/all-patients'
+    },
+    {
       id: 'messages',
       label: 'Messages',
       icon: 'MessageCircle',
-      path: '/messages',
-      isActive: location.pathname === '/messages'
+      path: '/messaging',
+      isActive: location.pathname === '/messaging'
     }
   ];
 

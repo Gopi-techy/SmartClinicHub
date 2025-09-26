@@ -261,6 +261,103 @@ router.post('/upload-profile-picture/:userId',
 );
 
 /**
+ * @route   GET /api/users/public/doctors
+ * @desc    Get list of doctors with filters (Public endpoint)
+ * @access  Public
+ */
+router.get('/public/doctors',
+  validateSearch,
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    const { 
+      query, 
+      specialization, 
+      city, 
+      state, 
+      minRating, 
+      maxFee,
+      availability,
+      page = 1, 
+      limit = 10,
+      sortBy = 'rating',
+      sortOrder = 'desc' 
+    } = req.query;
+
+    // Build filter object
+    const filters = {
+      role: 'doctor',
+      isActive: true,
+      isDeleted: false,
+      verificationStatus: 'approved' // Only show verified doctors to patients
+    };
+
+    if (query) {
+      filters.$or = [
+        { firstName: { $regex: query, $options: 'i' } },
+        { lastName: { $regex: query, $options: 'i' } },
+        { 'professionalInfo.specialization': { $regex: query, $options: 'i' } }
+      ];
+    }
+
+    if (specialization) {
+      filters['professionalInfo.specialization'] = { $regex: specialization, $options: 'i' };
+    }
+
+    if (city) {
+      filters['address.city'] = { $regex: city, $options: 'i' };
+    }
+
+    if (state) {
+      filters['address.state'] = { $regex: state, $options: 'i' };
+    }
+
+    if (minRating) {
+      filters['professionalInfo.rating'] = { $gte: parseFloat(minRating) };
+    }
+
+    if (maxFee) {
+      filters['professionalInfo.consultationFee'] = { $lte: parseFloat(maxFee) };
+    }
+
+    // Build sort object
+    const sortOptions = {};
+    if (sortBy === 'rating') {
+      sortOptions['professionalInfo.rating'] = sortOrder === 'desc' ? -1 : 1;
+    } else if (sortBy === 'fee') {
+      sortOptions['professionalInfo.consultationFee'] = sortOrder === 'desc' ? -1 : 1;
+    } else if (sortBy === 'name') {
+      sortOptions.firstName = sortOrder === 'desc' ? -1 : 1;
+    } else {
+      sortOptions.createdAt = -1;
+    }
+
+    // Execute query
+    const doctors = await User.find(filters)
+      .select('firstName lastName email phone professionalInfo address profilePicture')
+      .sort(sortOptions)
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .lean();
+
+    const total = await User.countDocuments(filters);
+
+    res.json({
+      success: true,
+      data: {
+        doctors,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(total / limit),
+          totalDoctors: total,
+          hasNextPage: parseInt(page) < Math.ceil(total / limit),
+          hasPrevPage: parseInt(page) > 1
+        }
+      }
+    });
+  })
+);
+
+/**
  * @route   GET /api/users/doctors
  * @desc    Get list of doctors with filters
  * @access  Public

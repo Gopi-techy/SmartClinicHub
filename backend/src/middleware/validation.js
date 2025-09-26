@@ -346,7 +346,7 @@ const validateSearch = [
 
   query('sortBy')
     .optional()
-    .isIn(['name', 'date', 'rating', 'price', 'distance'])
+    .isIn(['name', 'date', 'rating', 'fee', 'price', 'distance'])
     .withMessage('Invalid sort field'),
 
   query('sortOrder')

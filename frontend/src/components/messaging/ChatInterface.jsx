@@ -1,281 +1,339 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import messagingService from '../../utils/messagingService';
-import Button from '../ui/Button';
-import Icon from '../AppIcon';
+import { Send, Paperclip, Smile, Phone, Video, MoreVertical, ArrowLeft } from 'lucide-react';
 
-const ChatInterface = ({ conversationId, onClose }) => {
-  const { user, userProfile } = useAuth();
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [conversation, setConversation] = useState(null);
+const ChatInterface = ({ 
+  conversation, 
+  messages = [], 
+  currentUser, 
+  onSendMessage, 
+  onFileUpload,
+  onBack,
+  onlineStatus,
+  isTyping,
+  onTyping 
+}) => {
+  const [message, setMessage] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
-  // Scroll to bottom of messages
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Load messages and conversation details
-  useEffect(() => {
-    if (!conversationId || !user?.id) return;
-
-    const loadMessages = async () => {
-      setLoading(true);
-      
-      // Load conversation details first
-      const conversationsResult = await messagingService.getConversations(user.id);
-      if (conversationsResult?.success) {
-        const currentConversation = conversationsResult.data.find(
-          conv => conv.id === conversationId
-        );
-        setConversation(currentConversation);
-      }
-
-      // Load messages
-      const messagesResult = await messagingService.getMessages(conversationId);
-      if (messagesResult?.success) {
-        setMessages(messagesResult.data || []);
-        // Mark messages as read
-        messagingService.markMessagesAsRead(conversationId, user.id);
-      }
-      
-      setLoading(false);
-    };
-
-    loadMessages();
-
-    // Subscribe to real-time updates
-    const subscription = messagingService.subscribeToMessages(
-      conversationId,
-      ({ type, message }) => {
-        if (type === 'new_message') {
-          setMessages(prev => [...prev, message]);
-          // Mark as read if not sent by current user
-          if (message.sender_id !== user.id) {
-            messagingService.markMessagesAsRead(conversationId, user.id);
-          }
-        }
-      }
-    );
-
-    return () => {
-      if (subscription) {
-        subscription.unsubscribe();
-      }
-    };
-  }, [conversationId, user?.id]);
-
-  // Send a message
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!newMessage.trim() || sending) return;
-
-    setSending(true);
-    
-    const result = await messagingService.sendMessage(
-      conversationId, 
-      newMessage.trim()
-    );
-    
-    if (result?.success) {
-      setNewMessage('');
-    } else {
-      alert(result?.error || 'Failed to send message');
-    }
-    
-    setSending(false);
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Format message timestamp
-  const formatMessageTime = (timestamp) => {
+  const handleSendMessage = () => {
+    if (message.trim() && conversation) {
+      onSendMessage({
+        receiverId: conversation.participant._id,
+        content: message.trim(),
+        messageType: 'text'
+      });
+      setMessage('');
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const handleTyping = (value) => {
+    setMessage(value);
+    
+    // Emit typing indicator
+    if (onTyping) {
+      onTyping(true);
+      
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Set new timeout to stop typing indicator
+      typingTimeoutRef.current = setTimeout(() => {
+        onTyping(false);
+      }, 1000);
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file && conversation) {
+      onFileUpload({
+        receiverId: conversation.participant._id,
+        file,
+        messageType: file.type.startsWith('image/') ? 'image' : 'file'
+      });
+    }
+  };
+
+  const formatTime = (timestamp) => {
+    return new Date(timestamp).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  };
+
+  const formatDate = (timestamp) => {
     const date = new Date(timestamp);
-    const now = new Date();
-    const diffInMs = now - date;
-    const diffInHours = diffInMs / (1000 * 60 * 60);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
 
-    if (diffInHours < 24) {
-      return date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      });
-    } else if (diffInHours < 24 * 7) {
-      return date.toLocaleDateString('en-US', { weekday: 'short' });
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
     } else {
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
+      return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
       });
     }
   };
 
-  // Get chat partner info
-  const getChatPartner = () => {
-    if (!conversation || !userProfile) return null;
-    
-    return userProfile.role === 'patient' 
-      ? conversation.doctor 
-      : conversation.patient;
+  const groupMessagesByDate = (messages) => {
+    const groups = {};
+    messages.forEach(msg => {
+      const date = new Date(msg.createdAt).toDateString();
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(msg);
+    });
+    return groups;
   };
 
-  const chatPartner = getChatPartner();
+  const messageGroups = groupMessagesByDate(messages);
 
-  if (loading) {
+  // Show empty state if no messages
+  if (messages.length === 0) {
+    messageGroups['today'] = [];
+  }
+
+  if (!conversation) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex items-center space-x-2 text-muted-foreground">
-          <Icon name="Loader" className="animate-spin" />
-          <span>Loading chat...</span>
+      <div className="flex-1 flex items-center justify-center bg-gray-50">
+        <div className="text-center text-gray-500">
+          <div className="text-6xl mb-4">💬</div>
+          <h3 className="text-lg font-medium mb-2">Select a conversation</h3>
+          <p className="text-sm">Choose a conversation from the list to start messaging</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-background rounded-lg border border-border">
+    <div className="flex-1 flex flex-col bg-white">
       {/* Chat Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
+      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-            {chatPartner?.avatar_url ? (
-              <img 
-                src={chatPartner.avatar_url} 
-                alt={chatPartner.full_name}
-                className="w-full h-full rounded-full object-cover"
+          <button
+            onClick={onBack}
+            className="lg:hidden p-2 hover:bg-gray-100 rounded-full"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div className="flex items-center space-x-3">
+            <div className="relative">
+              <img
+                src={conversation.participant.profilePicture || '/assets/images/no_image.png'}
+                alt={`${conversation.participant.firstName} ${conversation.participant.lastName}`}
+                className="h-10 w-10 rounded-full object-cover"
               />
-            ) : (
-              <Icon name="User" className="w-5 h-5 text-primary" />
-            )}
-          </div>
-          <div>
-            <h3 className="font-medium text-foreground">
-              {chatPartner?.full_name || 'Unknown User'}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {conversation?.subject || 'General Consultation'}
-            </p>
+              {onlineStatus && (
+                <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 border-2 border-white rounded-full"></div>
+              )}
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-900">
+                {conversation.participant.firstName} {conversation.participant.lastName}
+              </h3>
+              <p className="text-sm text-gray-500 capitalize">
+                {conversation.participant.role}
+                {onlineStatus && <span className="text-green-500 ml-2">• Online</span>}
+                {isTyping && <span className="text-blue-500 ml-2">• Typing...</span>}
+              </p>
+            </div>
           </div>
         </div>
-        
         <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            iconName="Phone"
-            className="text-muted-foreground hover:text-foreground"
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            iconName="Video"
-            className="text-muted-foreground hover:text-foreground"
-          />
-          {onClose && (
-            <Button
-              variant="ghost"
-              size="sm"
-              iconName="X"
-              onClick={onClose}
-              className="text-muted-foreground hover:text-foreground"
-            />
-          )}
+          <button className="p-2 hover:bg-gray-100 rounded-full">
+            <Phone className="h-5 w-5 text-gray-600" />
+          </button>
+          <button className="p-2 hover:bg-gray-100 rounded-full">
+            <Video className="h-5 w-5 text-gray-600" />
+          </button>
+          <button className="p-2 hover:bg-gray-100 rounded-full">
+            <MoreVertical className="h-5 w-5 text-gray-600" />
+          </button>
         </div>
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
         {messages.length === 0 ? (
-          <div className="text-center py-8">
-            <Icon name="MessageCircle" className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
-            <p className="text-muted-foreground">No messages yet</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Start the conversation with {chatPartner?.full_name}
-            </p>
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-gray-500">
+              <div className="text-4xl mb-4">💬</div>
+              <h3 className="text-lg font-medium mb-2">No messages yet</h3>
+              <p className="text-sm">Start the conversation with {conversation.participant.firstName}</p>
+            </div>
           </div>
         ) : (
-          messages.map((message) => {
-            const isOwnMessage = message.sender_id === user?.id;
-            
-            return (
-              <div
-                key={message.id}
-                className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`max-w-xs lg:max-w-md ${isOwnMessage ? 'order-1' : 'order-2'}`}>
-                  <div
-                    className={`rounded-lg px-4 py-2 ${
-                      isOwnMessage
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    <p className="text-sm">{message.content}</p>
-                    {message.is_urgent && (
-                      <div className="flex items-center mt-1">
-                        <Icon name="AlertTriangle" className="w-3 h-3 text-orange-500 mr-1" />
-                        <span className="text-xs text-orange-500">Urgent</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className={`flex items-center mt-1 space-x-1 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-                    <span className="text-xs text-muted-foreground">
-                      {formatMessageTime(message.created_at)}
-                    </span>
-                    {isOwnMessage && (
-                      <Icon 
-                        name={message.status === 'read' ? 'CheckCheck' : 'Check'} 
-                        className={`w-3 h-3 ${message.status === 'read' ? 'text-blue-500' : 'text-muted-foreground'}`}
-                      />
-                    )}
-                  </div>
+          Object.entries(messageGroups).map(([date, dayMessages]) => (
+            <div key={date}>
+              {/* Date Separator */}
+              <div className="flex justify-center mb-4">
+                <div className="bg-white px-3 py-1 rounded-full text-xs text-gray-500 shadow-sm">
+                  {formatDate(dayMessages[0].createdAt)}
                 </div>
               </div>
-            );
-          })
+
+              {/* Messages for this date */}
+              {dayMessages.map((msg, index) => {
+                const isCurrentUser = msg.sender._id === currentUser.userId;
+                const showAvatar = !isCurrentUser && (
+                  index === 0 || 
+                  dayMessages[index - 1].sender._id !== msg.sender._id
+                );
+
+                return (
+                  <div
+                    key={msg._id}
+                    className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-2`}
+                  >
+                    <div className={`flex ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'} items-end space-x-2 max-w-xs lg:max-w-md`}>
+                      {showAvatar && !isCurrentUser && (
+                        <img
+                          src={msg.sender.profilePicture || '/assets/images/no_image.png'}
+                          alt={msg.sender.firstName}
+                          className="h-6 w-6 rounded-full object-cover"
+                        />
+                      )}
+                      {!showAvatar && !isCurrentUser && <div className="w-6" />}
+
+                      <div
+                        className={`px-3 py-2 rounded-lg ${
+                          isCurrentUser
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-white text-gray-900 border border-gray-200'
+                        }`}
+                      >
+                        {msg.messageType === 'image' ? (
+                          <div>
+                            <img
+                              src={msg.fileUrl}
+                              alt={msg.fileName}
+                              className="max-w-full h-auto rounded-lg mb-1"
+                            />
+                            {msg.content && (
+                              <p className="text-sm">{msg.content}</p>
+                            )}
+                          </div>
+                        ) : msg.messageType === 'file' ? (
+                          <div className="flex items-center space-x-2">
+                            <Paperclip className="h-4 w-4" />
+                            <div>
+                              <p className="text-sm font-medium">{msg.fileName}</p>
+                              <p className="text-xs opacity-75">
+                                {(msg.fileSize / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        )}
+
+                        <div className={`flex items-center justify-end mt-1 space-x-1 ${
+                          isCurrentUser ? 'text-blue-100' : 'text-gray-500'
+                        }`}>
+                          <span className="text-xs">{formatTime(msg.createdAt)}</span>
+                          {isCurrentUser && (
+                            <div className="flex space-x-1">
+                              <div className={`w-3 h-3 ${msg.isDelivered ? 'text-blue-100' : 'text-blue-300'}`}>
+                                ✓
+                              </div>
+                              {msg.isRead && (
+                                <div className="w-3 h-3 text-blue-100">✓</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))
         )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Message Input */}
-      <div className="border-t border-border p-4">
-        <form onSubmit={handleSendMessage} className="flex items-end space-x-2">
-          <div className="flex-1">
+      <div className="bg-white border-t border-gray-200 p-4">
+        <div className="flex items-end space-x-3">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            accept="image/*,.pdf,.txt,.doc,.docx"
+            className="hidden"
+          />
+          
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2 hover:bg-gray-100 rounded-full text-gray-600"
+          >
+            <Paperclip className="h-5 w-5" />
+          </button>
+
+          <div className="flex-1 relative">
             <textarea
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type your message..."
-              className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              value={message}
+              onChange={(e) => handleTyping(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type a message..."
               rows={1}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage(e);
-                }
+              className="w-full px-4 py-2 border border-gray-300 rounded-full resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              style={{
+                minHeight: '40px',
+                maxHeight: '120px'
               }}
-              disabled={sending}
             />
           </div>
-          <Button
-            type="submit"
-            size="sm"
-            iconName="Send"
-            disabled={!newMessage.trim() || sending}
-            className="shrink-0"
+
+          <button
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            className="p-2 hover:bg-gray-100 rounded-full text-gray-600"
           >
-            {sending ? (
-              <Icon name="Loader" className="animate-spin" />
-            ) : (
-              <Icon name="Send" />
-            )}
-          </Button>
-        </form>
+            <Smile className="h-5 w-5" />
+          </button>
+
+          <button
+            onClick={handleSendMessage}
+            disabled={!message.trim()}
+            className={`p-2 rounded-full ${
+              message.trim()
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            <Send className="h-5 w-5" />
+          </button>
+        </div>
       </div>
     </div>
   );

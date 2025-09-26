@@ -373,6 +373,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     ...state,
+    token: localStorage.getItem('authToken'),
     login,
     signIn,
     register,

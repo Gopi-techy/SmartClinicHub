@@ -76,16 +76,15 @@ const PatientManagementTable = ({ patients, onPatientSelect, onCreatePrescriptio
   };
 
   return (
-    <div className="bg-card rounded-lg border border-border p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-foreground flex items-center">
-          <Icon name="Users" size={24} className="mr-2 text-primary" />
-          Patient Management
-        </h2>
-        <div className="text-sm text-muted-foreground">
-          {filteredAndSortedPatients.length} of {patients.length} patients
-        </div>
-      </div>
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Patient Management</h2>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  Appointment Based
+                </span>
+              </div>
+            </div>
 
       {/* Search and Filter Controls */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">

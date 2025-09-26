@@ -337,13 +337,6 @@ This project follows healthcare industry standards and best practices. Contribut
 
 This project is proprietary software developed for healthcare management purposes.
 
-## 📞 Support
-
-For technical support and inquiries:
-
-- Email: support@smartclinichub.com
-- Phone: 1-555-CLINIC (1-555-254-6425)
-
 ## 🚨 Emergency Features
 
 SmartClinicHub includes comprehensive emergency response capabilities:

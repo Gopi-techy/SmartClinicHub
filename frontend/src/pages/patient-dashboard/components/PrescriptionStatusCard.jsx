@@ -3,6 +3,9 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 
 const PrescriptionStatusCard = ({ prescriptions = [] }) => {
+  // Ensure prescriptions is always an array
+  const safePrescriptions = Array.isArray(prescriptions) ? prescriptions : [];
+  
   const getStatusColor = (status) => {
     switch (status) {
       case 'active':
@@ -43,7 +46,7 @@ const PrescriptionStatusCard = ({ prescriptions = [] }) => {
           <div>
             <h3 className="text-lg font-semibold text-foreground">Prescriptions</h3>
             <p className="text-sm text-muted-foreground">
-              {prescriptions.length === 0 ? 'No medications' : `${prescriptions.length} active medications`}
+              {safePrescriptions.length === 0 ? 'No medications' : `${safePrescriptions.length} active medications`}
             </p>
           </div>
         </div>
@@ -52,7 +55,7 @@ const PrescriptionStatusCard = ({ prescriptions = [] }) => {
         </Button>
       </div>
 
-      {prescriptions.length === 0 ? (
+      {safePrescriptions.length === 0 ? (
         <div className="text-center py-8">
           <Icon name="Pill" size={48} className="mx-auto text-muted-foreground mb-4" />
           <h4 className="text-lg font-medium text-foreground mb-2">No Prescriptions</h4>
@@ -63,7 +66,7 @@ const PrescriptionStatusCard = ({ prescriptions = [] }) => {
         </div>
       ) : (
         <div className="space-y-4 mb-6">
-          {prescriptions.map((prescription, index) => (
+          {safePrescriptions.map((prescription, index) => (
           <div key={index} className="bg-muted/30 rounded-lg p-4">
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">

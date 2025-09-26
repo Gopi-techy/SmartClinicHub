@@ -4,6 +4,8 @@ const {
   getAppointments,
   updateAppointmentStatus,
   getAppointmentById,
+  getDoctorPatients,
+  getAllPatients,
   cancelAppointment
 } = require('../controllers/appointmentController');
 
@@ -41,6 +43,28 @@ router.get('/',
   validateSearch,
   handleValidationErrors,
   asyncHandler(getAppointments)
+);
+
+/**
+ * @route   GET /api/appointments/doctor/all-patients
+ * @desc    Get all registered patients in the system
+ * @access  Private (Doctor)
+ */
+router.get('/doctor/all-patients',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(getAllPatients)
+);
+
+/**
+ * @route   GET /api/appointments/doctor/patients
+ * @desc    Get all appointments for a doctor
+ * @access  Private (Doctor)
+ */
+router.get('/doctor/patients',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(getDoctorPatients)
 );
 
 /**

@@ -9,6 +9,8 @@ import QuickActions from './components/QuickActions';
 import RecentActivity from './components/RecentActivity';
 import SystemStatusIndicator from './components/SystemStatusIndicator';
 import UserManagementTable from './components/UserManagementTable';
+import PatientManagement from './components/PatientManagement';
+import DoctorManagement from './components/DoctorManagement';
 import DoctorVerification from './DoctorVerification';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
@@ -20,15 +22,21 @@ const AdminDashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [systemStatus, setSystemStatus] = useState('operational');
   
-  // Set initial view based on URL path
-  const getInitialView = () => {
+  // Get current view based on URL path
+  const getCurrentView = () => {
     if (location.pathname.includes('/doctor-verification')) {
       return 'doctor-verification';
+    } else if (location.pathname.includes('/user-management')) {
+      return 'user-management';
+    } else if (location.pathname.includes('/patient-management')) {
+      return 'patient-management';
+    } else if (location.pathname.includes('/doctor-management')) {
+      return 'doctor-management';
     }
     return 'dashboard';
   };
   
-  const [activeView, setActiveView] = useState(getInitialView());
+  const activeView = getCurrentView();
 
   useEffect(() => {
     // Check authentication
@@ -92,8 +100,8 @@ const AdminDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Welcome Section */}
           <div className="mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <div>
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+              <div className="flex-shrink-0">
                 <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
                   {getGreeting()}, {user.firstName || 'Admin'}!
                 </h1>
@@ -106,47 +114,47 @@ const AdminDashboard = () => {
                   })}
                 </p>
               </div>
-              <div className="flex items-center space-x-3 mt-4 sm:mt-0">
-                <SystemStatusIndicator status={systemStatus} />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  iconName="Settings"
-                  onClick={() => navigate('/admin/settings')}
-                >
-                  System Settings
-                </Button>
+              <div className="flex items-center justify-end flex-1 ml-8">
+                <div className="ml-auto">
+                  <SystemStatusIndicator status={systemStatus} />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Navigation Tabs */}
+          {/* Page Title based on current view */}
           <div className="mb-8">
-            <div className="border-b border-border">
-              <nav className="flex space-x-8">
-                <button
-                  onClick={() => setActiveView('dashboard')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    activeView === 'dashboard'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-                  }`}
-                >
-                  <Icon name="LayoutDashboard" size={16} className="mr-2 inline" />
-                  Dashboard
-                </button>
-                <button
-                  onClick={() => setActiveView('doctor-verification')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    activeView === 'doctor-verification'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-                  }`}
-                >
-                  <Icon name="Shield" size={16} className="mr-2 inline" />
-                  Doctor Verification
-                </button>
-              </nav>
+            <div className="flex items-center space-x-2">
+              {activeView === 'dashboard' && (
+                <>
+                  <Icon name="LayoutDashboard" size={20} className="text-primary" />
+                  <h2 className="text-xl font-semibold text-foreground">Dashboard Overview</h2>
+                </>
+              )}
+              {activeView === 'doctor-verification' && (
+                <>
+                  <Icon name="Shield" size={20} className="text-primary" />
+                  <h2 className="text-xl font-semibold text-foreground">Doctor Verification</h2>
+                </>
+              )}
+              {activeView === 'user-management' && (
+                <>
+                  <Icon name="Users" size={20} className="text-primary" />
+                  <h2 className="text-xl font-semibold text-foreground">User Management</h2>
+                </>
+              )}
+              {activeView === 'patient-management' && (
+                <>
+                  <Icon name="Heart" size={20} className="text-primary" />
+                  <h2 className="text-xl font-semibold text-foreground">Patient Management</h2>
+                </>
+              )}
+              {activeView === 'doctor-management' && (
+                <>
+                  <Icon name="Stethoscope" size={20} className="text-primary" />
+                  <h2 className="text-xl font-semibold text-foreground">Doctor Management</h2>
+                </>
+              )}
             </div>
           </div>
 
@@ -238,6 +246,20 @@ const AdminDashboard = () => {
 
           {activeView === 'doctor-verification' && (
             <DoctorVerification />
+          )}
+
+          {activeView === 'user-management' && (
+            <div className="space-y-6">
+              <UserManagementTable users={users} onUserAction={handleUserAction} />
+            </div>
+          )}
+
+          {activeView === 'patient-management' && (
+            <PatientManagement />
+          )}
+
+          {activeView === 'doctor-management' && (
+            <DoctorManagement />
           )}
         </div>
       </div>

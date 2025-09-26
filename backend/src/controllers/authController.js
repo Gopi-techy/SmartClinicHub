@@ -112,7 +112,14 @@ const register = async (req, res) => {
         email: user.email,
         role: user.role,
         phone: user.phone,
-        isEmailVerified: user.isEmailVerified
+        dateOfBirth: user.dateOfBirth,
+        gender: user.gender,
+        address: user.address,
+        emergencyContact: user.emergencyContact,
+        medicalInfo: user.medicalInfo,
+        professionalInfo: user.professionalInfo,
+        isEmailVerified: user.isEmailVerified,
+        createdAt: user.createdAt
       }
     });
   } catch (error) {
@@ -236,7 +243,15 @@ const login = async (req, res) => {
         email: user.email,
         role: user.role,
         phone: user.phone,
+        dateOfBirth: user.dateOfBirth,
+        gender: user.gender,
+        address: user.address,
+        emergencyContact: user.emergencyContact,
+        medicalInfo: user.medicalInfo,
+        professionalInfo: user.professionalInfo,
         specialization: user.professionalInfo?.specialization,
+        verificationStatus: user.verificationStatus,
+        verificationDetails: user.verificationDetails,
         isEmailVerified: user.isEmailVerified,
         lastLogin: user.lastLogin
       }
@@ -296,7 +311,27 @@ const getMe = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        user
+        user: {
+          id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          fullName: user.fullName,
+          email: user.email,
+          role: user.role,
+          phone: user.phone,
+          dateOfBirth: user.dateOfBirth,
+          gender: user.gender,
+          address: user.address,
+          emergencyContact: user.emergencyContact,
+          medicalInfo: user.medicalInfo,
+          professionalInfo: user.professionalInfo,
+          verificationStatus: user.verificationStatus,
+          verificationDetails: user.verificationDetails,
+          isEmailVerified: user.isEmailVerified,
+          lastLogin: user.lastLogin,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        }
       }
     });
   } catch (error) {

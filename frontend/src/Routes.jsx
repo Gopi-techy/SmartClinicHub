@@ -18,7 +18,16 @@ import NotFound from "./pages/NotFound";
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { isAuthenticated, userRole, isLoading } = useAuth();
 
+  console.log('🛡️ ProtectedRoute check:', { 
+    isAuthenticated, 
+    userRole, 
+    isLoading, 
+    allowedRoles,
+    location: window.location.pathname
+  });
+
   if (isLoading) {
+    console.log('⏳ ProtectedRoute: Still loading auth state');
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -30,14 +39,17 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   }
 
   if (!isAuthenticated) {
+    console.log('❌ ProtectedRoute: Not authenticated, redirecting to login');
     return <Navigate to="/login-registration" replace />;
   }
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
+    console.log('🚫 ProtectedRoute: Role not allowed, redirecting to dashboard. User role:', userRole, 'Allowed:', allowedRoles);
     // Redirect to appropriate dashboard based on user role
     return <Navigate to={`/${userRole}-dashboard`} replace />;
   }
 
+  console.log('✅ ProtectedRoute: Access granted for', userRole, 'on', window.location.pathname);
   return children;
 };
 
@@ -54,9 +66,12 @@ const AdminRoute = ({ children }) => (
   <ProtectedRoute allowedRoles={['admin']}>{children}</ProtectedRoute>
 );
 
-const HealthcareRoute = ({ children }) => (
-  <ProtectedRoute allowedRoles={['patient', 'doctor', 'nurse']}>{children}</ProtectedRoute>
-);
+const HealthcareRoute = ({ children }) => {
+  console.log('🏥 HealthcareRoute: Checking access for healthcare route');
+  return (
+    <ProtectedRoute allowedRoles={['patient', 'doctor', 'nurse']}>{children}</ProtectedRoute>
+  );
+};
 
 const Routes = () => {
   const { isAuthenticated, userRole } = useAuth();
@@ -102,6 +117,30 @@ const Routes = () => {
             } 
           />
           <Route 
+            path="/admin-dashboard/user-management" 
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin-dashboard/patient-management" 
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin-dashboard/doctor-management" 
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            } 
+          />
+          <Route 
             path="/patient-dashboard" 
             element={
               <PatientRoute>
@@ -111,6 +150,14 @@ const Routes = () => {
           />
           <Route 
             path="/doctor-dashboard" 
+            element={
+              <DoctorRoute>
+                <DoctorDashboard />
+              </DoctorRoute>
+            } 
+          />
+          <Route 
+            path="/doctor-dashboard/all-patients" 
             element={
               <DoctorRoute>
                 <DoctorDashboard />
@@ -136,7 +183,7 @@ const Routes = () => {
             } 
           />
           <Route 
-            path="/messages" 
+            path="/messaging" 
             element={
               <HealthcareRoute>
                 <MessagingPage />

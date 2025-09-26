@@ -14,6 +14,7 @@ import CalendarView from './components/CalendarView';
 import AppointmentTypeSelector from './components/AppointmentTypeSelector';
 import BookingConfirmation from './components/BookingConfirmation';
 import BookingProgressIndicator from './components/BookingProgressIndicator';
+import doctorService from '../../services/doctorService';
 
 const AppointmentBooking = () => {
   const navigate = useNavigate();
@@ -26,11 +27,78 @@ const AppointmentBooking = () => {
   const [selectedTime, setSelectedTime] = useState(null);
   const [appointmentType, setAppointmentType] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [doctors, setDoctors] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({});
 
   useEffect(() => {
     const role = localStorage.getItem('userRole') || 'patient';
     setUserRole(role);
   }, []);
+
+  // Fetch doctors on component mount and when specialty changes
+  useEffect(() => {
+    fetchDoctors();
+  }, [selectedSpecialty]);
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.trim() !== '') {
+        fetchDoctors();
+      } else if (searchQuery === '') {
+        fetchDoctors(); // Reset to show all when search is cleared
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  const fetchDoctors = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const filters = {
+        page: 1,
+        limit: 20,
+        sortBy: 'rating',
+        sortOrder: 'desc'
+      };
+
+      if (searchQuery.trim()) {
+        filters.query = searchQuery.trim();
+      }
+
+      if (selectedSpecialty && selectedSpecialty !== 'all') {
+        // Map specialty filter to backend format
+        const specialtyMap = {
+          'cardiology': 'cardiology',
+          'dermatology': 'dermatology',
+          'neurology': 'neurology',
+          'orthopedics': 'orthopedics',
+          'pediatrics': 'pediatrics',
+          'psychiatry': 'psychiatry',
+          'radiology': 'radiology',
+          'surgery': 'surgery'
+        };
+        filters.specialization = specialtyMap[selectedSpecialty] || selectedSpecialty;
+      }
+
+      const response = await doctorService.getDoctors(filters);
+      const transformedData = doctorService.transformDoctorData(response);
+      
+      setDoctors(transformedData.doctors);
+      setPagination(transformedData.pagination);
+    } catch (err) {
+      console.error('Error fetching doctors:', err);
+      setError('Failed to load doctors. Please try again.');
+      setDoctors([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const specialties = [
     { id: 'cardiology', name: 'Cardiology', icon: 'Heart' },
@@ -43,81 +111,11 @@ const AppointmentBooking = () => {
     { id: 'surgery', name: 'Surgery', icon: 'Scissors' }
   ];
 
-  const mockProviders = [
-    {
-      id: 1,
-      name: "Dr. Sarah Johnson",
-      specialty: "Cardiology",
-      specialtyId: "cardiology",
-      hospital: "City General Hospital",
-      image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face",
-      rating: 4.8,
-      reviewCount: 127,
-      experience: "12 years",
-      consultationFee: 150,
-      nextAvailable: new Date(Date.now() + 86400000),
-      isOnline: true,
-      specializations: ["Heart Surgery", "Cardiac Imaging", "Preventive Cardiology"]
-    },
-    {
-      id: 2,
-      name: "Dr. Michael Chen",
-      specialty: "Dermatology",
-      specialtyId: "dermatology",
-      hospital: "Metro Medical Center",
-      image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop&crop=face",
-      rating: 4.9,
-      reviewCount: 89,
-      experience: "8 years",
-      consultationFee: 120,
-      nextAvailable: new Date(Date.now() + 172800000),
-      isOnline: false,
-      specializations: ["Skin Cancer", "Cosmetic Dermatology", "Acne Treatment"]
-    },
-    {
-      id: 3,
-      name: "Dr. Emily Rodriguez",
-      specialty: "Pediatrics",
-      specialtyId: "pediatrics",
-      hospital: "Children\'s Healthcare",
-      image: "https://images.unsplash.com/photo-1594824804732-ca8db4394b5e?w=400&h=400&fit=crop&crop=face",
-      rating: 4.7,
-      reviewCount: 156,
-      experience: "15 years",
-      consultationFee: 100,
-      nextAvailable: new Date(Date.now() + 259200000),
-      isOnline: true,
-      specializations: ["Child Development", "Vaccinations", "Pediatric Emergency"]
-    },
-    {
-      id: 4,
-      name: "Dr. James Wilson",
-      specialty: "Orthopedics",
-      specialtyId: "orthopedics",
-      hospital: "Sports Medicine Institute",
-      image: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&h=400&fit=crop&crop=face",
-      rating: 4.6,
-      reviewCount: 203,
-      experience: "20 years",
-      consultationFee: 180,
-      nextAvailable: new Date(Date.now() + 345600000),
-      isOnline: true,
-      specializations: ["Joint Replacement", "Sports Injuries", "Spine Surgery"]
-    }
-  ];
-
   const availableSlots = [
     "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
     "18:00", "18:30", "19:00", "19:30"
   ];
-
-  const filteredProviders = mockProviders.filter(provider => {
-    const matchesSpecialty = selectedSpecialty === 'all' || provider.specialtyId === selectedSpecialty;
-    const matchesSearch = provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         provider.specialty.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSpecialty && matchesSearch;
-  });
 
   const handleProviderSelect = (provider) => {
     setSelectedProvider(provider);
@@ -301,21 +299,45 @@ const AppointmentBooking = () => {
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {filteredProviders.map((provider) => (
-                    <ProviderCard
-                      key={provider.id}
-                      provider={provider}
-                      isSelected={selectedProvider?.id === provider.id}
-                      onSelect={handleProviderSelect}
-                    />
-                  ))}
-                </div>
+                {/* Loading State */}
+                {loading && (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading doctors...</p>
+                  </div>
+                )}
 
-                {filteredProviders.length === 0 && (
+                {/* Error State */}
+                {error && !loading && (
+                  <div className="text-center py-12">
+                    <Icon name="AlertCircle" size={48} className="mx-auto text-destructive mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">Error Loading Doctors</h3>
+                    <p className="text-muted-foreground mb-4">{error}</p>
+                    <Button onClick={fetchDoctors} variant="outline">
+                      Try Again
+                    </Button>
+                  </div>
+                )}
+
+                {/* Doctors Grid */}
+                {!loading && !error && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {doctors.map((provider) => (
+                      <ProviderCard
+                        key={provider.id}
+                        provider={provider}
+                        isSelected={selectedProvider?.id === provider.id}
+                        onSelect={handleProviderSelect}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* No Results */}
+                {!loading && !error && doctors.length === 0 && (
                   <div className="text-center py-12">
                     <Icon name="UserX" size={48} className="mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium text-foreground mb-2">No providers found</h3>
+                    <h3 className="text-lg font-medium text-foreground mb-2">No doctors found</h3>
                     <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
                   </div>
                 )}
