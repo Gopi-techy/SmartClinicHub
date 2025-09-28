@@ -171,3 +171,23 @@ dump.rdb
 
 # Google Cloud
 .gcloud/
+
+# ML Models and Services
+ml-models/mchatbot-env/
+ml-models/mchatbot-env/**
+**/mchatbot-env/
+ml-models/model/*.bin
+ml-models/model/*.ggml
+ml-models/model/*.gguf
+ml-models/data/*.pdf
+ml-models/Medical_Chatbot.egg-info/
+ml-models/Medical_Chatbot.egg-info/**
+ml-models/research/
+ml-models/research/**
+ml-models/.env
+
+# Python ML specific
+*.pyc
+__pycache__/
+*.so
+*.egg-info/

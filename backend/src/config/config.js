@@ -24,8 +24,8 @@ const config = {
   // JWT configuration
   jwt: {
     secret: process.env.JWT_SECRET || 'fallback-secret-change-in-production',
-    expiresIn: '24h',
-    refreshExpiresIn: '7d'
+    expiresIn: '7d', // Extended for development - 7 days instead of 24h
+    refreshExpiresIn: '30d'
   },
   
   encryption: {
@@ -64,7 +64,7 @@ const config = {
 
   // Gemini AI configuration
   gemini: {
-    apiKey: process.env.GEMINI_API_KEY
+    apiKey: process.env.GEMINI_API_KEY || 'AIzaSyCe8R7VPdWoBWZhHDbIS4nIjzuDhYZiB0M'
   },
 
   oauth: {

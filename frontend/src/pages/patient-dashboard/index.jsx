@@ -13,6 +13,7 @@ import QuickActionsCard from './components/QuickActionsCard';
 import RecentActivityFeed from './components/RecentActivityFeed';
 import AppointmentBookingWidget from './components/AppointmentBookingWidget';
 import ProfileCompletionBanner from '../../components/ui/ProfileCompletionBanner';
+import MedicalChatContainer from '../../components/ui/MedicalChatContainer';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 
@@ -303,6 +304,9 @@ const PatientDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Medical Chat Widget */}
+      <MedicalChatContainer />
     </div>
     </>
   );

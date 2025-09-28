@@ -17,650 +17,237 @@ const router = express.Router();
 const genAI = new GoogleGenerativeAI(config.gemini.apiKey);
 
 /**
- * @route   POST /api/ai/symptom-checker
- * @desc    AI-powered symptom checker
- * @access  Private (Patient)
+ * @route   GET /api/ai/test
+ * @desc    Test AI API connection
+ * @access  Public (for testing)
  */
-router.post('/symptom-checker',
-  authenticate,
-  authorize('patient'),
-  rateLimitSensitive(10, 60 * 60 * 1000), // 10 requests per hour
+router.get('/test',
   asyncHandler(async (req, res) => {
-    const { symptoms, age, gender, medicalHistory = [], currentMedications = [] } = req.body;
-
-    if (!symptoms || symptoms.length === 0) {
-      return res.status(400).json({
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const prompt = "Hello! This is a simple test. Please respond with 'Hello, I am working correctly!'";
+      
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      
+      res.json({
+        success: true,
+        message: 'AI connection test successful',
+        data: {
+          response: text,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      res.status(500).json({
         error: true,
-        message: 'Symptoms are required'
+        message: 'AI connection test failed',
+        details: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  })
+);
+
+/**
+ * @route   POST /api/ai/analyze-symptoms
+ * @desc    AI-powered symptom analysis and recommendations
+ * @access  Private
+ */
+router.post('/analyze-symptoms',
+  authenticate,
+  rateLimitSensitive,
+  asyncHandler(async (req, res) => {
+    const { symptoms, patientInfo, medicalHistory } = req.body;
+
+    // Validate input
+    if (!symptoms || !Array.isArray(symptoms) || symptoms.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide at least one symptom'
       });
     }
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+      const model = genAI.getGenerativeModel({ 
+        model: 'gemini-2.0-flash',
+        generationConfig: {
+          temperature: 0.3, // Lower temperature for more consistent medical responses
+          topP: 0.8,
+          topK: 40,
+          maxOutputTokens: 2048,
+        },
+      });
+      
+      // Create more concise prompt for faster response
+      const prompt = `As a medical AI, analyze these symptoms and provide a concise JSON response:
 
-      const prompt = `
-        As a medical AI assistant, analyze the following symptoms and provide a preliminary assessment.
-        
-        Patient Information:
-        - Age: ${age || 'Not specified'}
-        - Gender: ${gender || 'Not specified'}
-        - Medical History: ${medicalHistory.join(', ') || 'None'}
-        - Current Medications: ${currentMedications.join(', ') || 'None'}
-        
-        Symptoms: ${symptoms.join(', ')}
-        
-        Please provide:
-        1. Possible conditions (ranked by likelihood)
-        2. Urgency level (low, medium, high, emergency)
-        3. Recommended actions
-        4. When to seek medical attention
-        5. Home care suggestions (if appropriate)
-        
-        Important disclaimer: This is not a substitute for professional medical advice.
-        Format your response as JSON with the following structure:
-        {
-          "possibleConditions": [
-            {
-              "condition": "condition name",
-              "likelihood": "percentage",
-              "description": "brief description"
-            }
-          ],
-          "urgencyLevel": "low|medium|high|emergency",
-          "recommendedActions": ["action1", "action2"],
-          "seekMedicalAttention": "when to see a doctor",
-          "homeCare": ["suggestion1", "suggestion2"],
-          "disclaimer": "medical disclaimer"
+SYMPTOMS: ${symptoms.map(s => `${s.name} (${s.severity}/10, ${s.duration})`).join(', ')}
+
+Return ONLY valid JSON with this structure:
+{
+  "urgencyLevel": "low|medium|high",
+  "urgencyExplanation": "brief explanation",
+  "possibleConditions": [{"name": "condition", "likelihood": "percentage", "description": "brief desc"}],
+  "medicationGuidance": [{"category": "Pain Relief", "medications": [{"name": "Acetaminophen", "dosage": "650mg every 4-6h", "precautions": "Max 3000mg/day"}]}],
+  "recommendations": [{"action": "see doctor", "timeframe": "within 24h", "importance": "high"}],
+  "warningSign": ["high fever", "difficulty breathing"],
+  "disclaimer": "Consult healthcare providers for persistent symptoms"
+}`;
+
+      let result;
+      let attempts = 0;
+      const maxAttempts = 3;
+
+      // Retry logic for overloaded service
+      while (attempts < maxAttempts) {
+        try {
+          attempts++;
+          console.log(`AI request attempt ${attempts}/${maxAttempts}`);
+          
+          result = await model.generateContent(prompt);
+          break; // Success, exit retry loop
+          
+        } catch (retryError) {
+          console.log(`Attempt ${attempts} failed:`, retryError.message);
+          
+          if (attempts === maxAttempts) {
+            throw retryError; // Last attempt failed
+          }
+          
+          // Wait before retrying (exponential backoff)
+          const delay = Math.min(1000 * Math.pow(2, attempts - 1), 5000);
+          console.log(`Waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
-      `;
-
-      const result = await model.generateContent(prompt);
+      }
       const response = await result.response;
       const aiResponse = response.text();
 
-      // Try to parse as JSON, fallback to text if parsing fails
-      let parsedResponse;
+      let analysis;
       try {
-        parsedResponse = JSON.parse(aiResponse);
+        // Clean the response to extract JSON
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysis = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No valid JSON found in AI response');
+        }
       } catch (parseError) {
-        parsedResponse = {
-          analysis: aiResponse,
-          urgencyLevel: 'medium',
-          disclaimer: 'This is not a substitute for professional medical advice. Please consult a healthcare provider.'
-        };
+        console.error('JSON parsing error:', parseError);
+        throw new Error('Failed to parse AI response');
       }
 
-      // Log AI consultation
-      logger.audit('AI symptom checker used', req.user._id, {
-        symptoms: symptoms.length,
-        urgencyLevel: parsedResponse.urgencyLevel,
+      // Log successful analysis
+      logger.audit('Symptom analysis completed', req.user._id, {
+        symptomCount: symptoms.length,
+        urgencyLevel: analysis.urgencyLevel,
         ip: req.ip
       });
 
       res.json({
         success: true,
         message: 'Symptom analysis completed',
-        data: {
-          analysis: parsedResponse,
-          consultationId: `ai_${Date.now()}_${req.user._id}`,
-          timestamp: new Date().toISOString(),
-          recommendation: parsedResponse.urgencyLevel === 'emergency' 
-            ? 'Seek immediate medical attention' 
-            : 'Consider booking an appointment with a healthcare provider'
-        }
+        analysis,
+        source: 'gemini',
+        analysisId: `symptom_${Date.now()}_${req.user._id}`,
+        timestamp: new Date().toISOString(),
+        patientId: req.user._id
       });
 
     } catch (error) {
-      logger.error('AI symptom checker error:', error);
-      res.status(500).json({
-        error: true,
-        message: 'AI service temporarily unavailable'
-      });
-    }
-  })
-);
-
-/**
- * @route   POST /api/ai/emergency-guidance
- * @desc    Emergency AI guidance system
- * @access  Public (Emergency situations)
- */
-router.post('/emergency-guidance',
-  rateLimitSensitive(20, 60 * 60 * 1000), // 20 requests per hour for emergencies
-  asyncHandler(async (req, res) => {
-    const { emergencyType, symptoms, patientAge, location, additionalInfo } = req.body;
-
-    if (!emergencyType) {
-      return res.status(400).json({
-        error: true,
-        message: 'Emergency type is required'
-      });
-    }
-
-    try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
-      const prompt = `
-        EMERGENCY MEDICAL GUIDANCE - This is a critical situation.
-        
-        Emergency Type: ${emergencyType}
-        Symptoms: ${symptoms?.join(', ') || 'Not specified'}
-        Patient Age: ${patientAge || 'Not specified'}
-        Location: ${location || 'Not specified'}
-        Additional Information: ${additionalInfo || 'None'}
-        
-        Provide IMMEDIATE, CLEAR, and ACTIONABLE emergency guidance:
-        
-        1. First priority actions (what to do RIGHT NOW)
-        2. Call emergency services? (YES/NO with reasoning)
-        3. Step-by-step immediate care instructions
-        4. What NOT to do (contraindications)
-        5. How to monitor the patient
-        6. When to perform CPR (if applicable)
-        7. Position/movement guidance
-        
-        Keep instructions simple, clear, and prioritize life-saving actions.
-        Always emphasize calling emergency services for life-threatening conditions.
-        
-        Format as JSON:
-        {
-          "priority": "critical|high|medium",
-          "callEmergencyServices": true/false,
-          "emergencyNumber": "applicable emergency number",
-          "immediateActions": ["action1", "action2"],
-          "stepByStepInstructions": ["step1", "step2"],
-          "doNotDo": ["avoid1", "avoid2"],
-          "monitoringPoints": ["monitor1", "monitor2"],
-          "cprRequired": true/false,
-          "positioningGuidance": "positioning instructions",
-          "timeframe": "how long to continue",
-          "warningSignsToWatch": ["sign1", "sign2"]
-        }
-      `;
-
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const aiResponse = response.text();
-
-      let guidance;
-      try {
-        guidance = JSON.parse(aiResponse);
-      } catch (parseError) {
-        // Fallback for critical situations
-        guidance = {
-          priority: 'critical',
-          callEmergencyServices: true,
-          emergencyNumber: '112',
-          immediateActions: ['Call emergency services immediately', 'Stay with the patient'],
-          stepByStepInstructions: aiResponse.split('\n').filter(line => line.trim()),
-          disclaimer: 'This is emergency AI guidance. Call professional emergency services immediately.'
-        };
-      }
-
-      // Log emergency AI consultation
-      logger.emergency('Emergency AI guidance requested', {
-        emergencyType,
-        priority: guidance.priority,
-        callEmergencyServices: guidance.callEmergencyServices,
-        ip: req.ip,
-        userAgent: req.get('User-Agent')
-      });
-
-      res.json({
-        success: true,
-        message: 'Emergency guidance provided',
-        data: {
-          guidance,
-          emergencyId: `emr_${Date.now()}_${req.ip.replace(/\./g, '')}`,
-          timestamp: new Date().toISOString(),
-          criticalNote: guidance.callEmergencyServices 
-            ? 'CALL EMERGENCY SERVICES IMMEDIATELY' 
-            : 'Follow the guidance carefully and monitor the situation'
-        }
-      });
-
-    } catch (error) {
-      logger.error('Emergency AI guidance error:', error);
+      logger.error('AI symptom analysis error:', error);
       
-      // Critical fallback response for emergencies
-      res.json({
-        success: true,
-        message: 'Emergency guidance (fallback)',
-        data: {
-          guidance: {
-            priority: 'critical',
-            callEmergencyServices: true,
-            emergencyNumber: '112',
-            immediateActions: [
-              'Call emergency services immediately',
-              'Check for responsiveness',
-              'Check breathing and pulse',
-              'Begin CPR if needed'
-            ],
-            criticalNote: 'AI service unavailable - Call emergency services immediately for any life-threatening situation'
+      // Check if it's a service overload error
+      if (error.message.includes('overloaded') || error.message.includes('503')) {
+        return res.status(503).json({
+          success: false,
+          error: 'AI Service Temporarily Overloaded',
+          message: 'The AI service is experiencing high traffic. Please try again in a few minutes.',
+          details: {
+            timestamp: new Date().toISOString(),
+            service: 'symptom-analysis',
+            retryAfter: '2-3 minutes'
           }
-        }
-      });
-    }
-  })
-);
-
-/**
- * @route   POST /api/ai/triage
- * @desc    AI-powered patient triage system
- * @access  Private (Healthcare providers)
- */
-router.post('/triage',
-  authenticate,
-  authorize('doctor', 'admin'),
-  rateLimitSensitive(50, 60 * 60 * 1000), // 50 requests per hour
-  asyncHandler(async (req, res) => {
-    const { 
-      patientId, 
-      symptoms, 
-      vitals, 
-      painLevel, 
-      duration, 
-      patientHistory 
-    } = req.body;
-
-    try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
-      const prompt = `
-        Medical Triage Assessment for Healthcare Provider
-        
-        Patient Symptoms: ${symptoms?.join(', ') || 'Not specified'}
-        Vital Signs: ${JSON.stringify(vitals || {})}
-        Pain Level (1-10): ${painLevel || 'Not specified'}
-        Symptom Duration: ${duration || 'Not specified'}
-        Medical History: ${patientHistory?.join(', ') || 'None'}
-        
-        Provide a comprehensive triage assessment:
-        
-        1. Triage Category (ESI 1-5 scale)
-        2. Priority Level (Critical, Urgent, Less Urgent, Non-Urgent)
-        3. Recommended Wait Time
-        4. Immediate Interventions Needed
-        5. Specialist Consultation Required
-        6. Diagnostic Tests Recommended
-        7. Risk Factors and Red Flags
-        8. Monitoring Requirements
-        
-        Use Emergency Severity Index (ESI) guidelines.
-        
-        Format as JSON:
-        {
-          "triageCategory": 1-5,
-          "priorityLevel": "Critical|Urgent|Less Urgent|Non-Urgent",
-          "recommendedWaitTime": "time in minutes",
-          "immediateInterventions": ["intervention1", "intervention2"],
-          "specialistRequired": "specialty or none",
-          "diagnosticTests": ["test1", "test2"],
-          "riskFactors": ["risk1", "risk2"],
-          "monitoringRequired": ["vital1", "vital2"],
-          "dispositionRecommendation": "admit|discharge|observe",
-          "followUpRequired": true/false,
-          "notes": "additional clinical notes"
-        }
-      `;
-
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const aiResponse = response.text();
-
-      let triageAssessment;
-      try {
-        triageAssessment = JSON.parse(aiResponse);
-      } catch (parseError) {
-        triageAssessment = {
-          triageCategory: 3,
-          priorityLevel: 'Less Urgent',
-          analysis: aiResponse,
-          note: 'Please review manually'
-        };
+        });
       }
-
-      // Log triage assessment
-      logger.audit('AI triage assessment', req.user._id, {
-        patientId,
-        triageCategory: triageAssessment.triageCategory,
-        priorityLevel: triageAssessment.priorityLevel,
-        assessedBy: req.user._id,
-        ip: req.ip
-      });
-
-      res.json({
-        success: true,
-        message: 'Triage assessment completed',
-        data: {
-          assessment: triageAssessment,
-          assessmentId: `triage_${Date.now()}_${patientId}`,
-          assessedBy: req.user._id,
-          timestamp: new Date().toISOString()
-        }
-      });
-
-    } catch (error) {
-      logger.error('AI triage error:', error);
-      res.status(500).json({
-        error: true,
-        message: 'Triage AI service temporarily unavailable'
-      });
-    }
-  })
-);
-
-/**
- * @route   POST /api/ai/medication-interaction
- * @desc    Check for drug interactions
- * @access  Private (Healthcare providers)
- */
-router.post('/medication-interaction',
-  authenticate,
-  authorize('doctor', 'pharmacy'),
-  rateLimitSensitive(30, 60 * 60 * 1000), // 30 requests per hour
-  asyncHandler(async (req, res) => {
-    const { medications, patientAge, patientConditions = [], allergies = [] } = req.body;
-
-    if (!medications || medications.length < 2) {
-      return res.status(400).json({
-        error: true,
-        message: 'At least two medications are required for interaction checking'
-      });
-    }
-
-    try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
-      const prompt = `
-        Drug Interaction Analysis
-        
-        Medications: ${medications.map(med => `${med.name} ${med.dosage}`).join(', ')}
-        Patient Age: ${patientAge || 'Not specified'}
-        Medical Conditions: ${patientConditions.join(', ') || 'None'}
-        Known Allergies: ${allergies.join(', ') || 'None'}
-        
-        Analyze potential drug interactions and provide:
-        
-        1. Drug-Drug Interactions (severity levels)
-        2. Drug-Condition Interactions
-        3. Drug-Allergy Conflicts
-        4. Age-Related Considerations
-        5. Dosage Adjustments Needed
-        6. Monitoring Requirements
-        7. Alternative Medications
-        8. Clinical Recommendations
-        
-        Rate interactions as: Minor, Moderate, Major, Contraindicated
-        
-        Format as JSON:
-        {
-          "drugInteractions": [
-            {
-              "drug1": "medication name",
-              "drug2": "medication name",
-              "severity": "Minor|Moderate|Major|Contraindicated",
-              "mechanism": "interaction mechanism",
-              "clinicalEffect": "expected effect",
-              "management": "how to manage"
-            }
-          ],
-          "conditionInteractions": ["interaction1", "interaction2"],
-          "allergyConflicts": ["conflict1", "conflict2"],
-          "ageConsiderations": "age-related notes",
-          "dosageAdjustments": ["adjustment1", "adjustment2"],
-          "monitoringRequired": ["parameter1", "parameter2"],
-          "alternatives": ["alternative1", "alternative2"],
-          "overallRisk": "Low|Moderate|High|Critical",
-          "recommendations": ["recommendation1", "recommendation2"]
-        }
-      `;
-
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const aiResponse = response.text();
-
-      let interactionAnalysis;
-      try {
-        interactionAnalysis = JSON.parse(aiResponse);
-      } catch (parseError) {
-        interactionAnalysis = {
-          analysis: aiResponse,
-          overallRisk: 'Moderate',
-          note: 'Please review manually with drug interaction database'
-        };
+      
+      // Check if it's a rate limit error
+      if (error.message.includes('rate limit') || error.message.includes('429')) {
+        return res.status(429).json({
+          success: false,
+          error: 'AI Service Rate Limited',
+          message: 'Too many requests. Please wait a moment and try again.',
+          details: {
+            timestamp: new Date().toISOString(),
+            service: 'symptom-analysis',
+            retryAfter: '1 minute'
+          }
+        });
       }
-
-      // Log interaction check
-      logger.audit('Drug interaction check', req.user._id, {
-        medicationCount: medications.length,
-        overallRisk: interactionAnalysis.overallRisk,
-        hasInteractions: interactionAnalysis.drugInteractions?.length > 0,
-        checkedBy: req.user._id,
-        ip: req.ip
-      });
-
-      res.json({
-        success: true,
-        message: 'Drug interaction analysis completed',
-        data: {
-          analysis: interactionAnalysis,
-          checkId: `interaction_${Date.now()}_${req.user._id}`,
-          checkedBy: req.user._id,
+      
+      res.status(503).json({
+        success: false,
+        error: 'AI Service Temporarily Unavailable',
+        message: 'Our AI service is currently unavailable. Please try again later or contact support.',
+        details: {
           timestamp: new Date().toISOString(),
-          disclaimer: 'This analysis is AI-generated. Always verify with official drug interaction databases and clinical judgment.'
+          service: 'symptom-analysis'
         }
-      });
-
-    } catch (error) {
-      logger.error('Drug interaction AI error:', error);
-      res.status(500).json({
-        error: true,
-        message: 'Drug interaction AI service temporarily unavailable'
       });
     }
   })
 );
 
 /**
- * @route   POST /api/ai/appointment-summary
- * @desc    Generate AI appointment summary
- * @access  Private (Doctor)
+ * @route   POST /api/ai/health-insights
+ * @desc    Generate personalized health insights and recommendations
+ * @access  Private
  */
-router.post('/appointment-summary',
+router.post('/health-insights',
   authenticate,
-  authorize('doctor'),
-  validateObjectId('appointmentId'),
-  handleValidationErrors,
+  rateLimitSensitive,
   asyncHandler(async (req, res) => {
-    const { appointmentId, consultationNotes, prescriptions } = req.body;
-
-    const appointment = await Appointment.findOne({
-      _id: appointmentId,
-      doctor: req.user._id,
-      status: 'completed'
-    }).populate('patient', 'firstName lastName age medicalInfo');
-
-    if (!appointment) {
-      return res.status(404).json({
-        error: true,
-        message: 'Appointment not found or not accessible'
-      });
-    }
+    const { goals, vitals, symptoms, lifestyle } = req.body;
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      
       const prompt = `
-        Generate a comprehensive medical appointment summary:
+        You are a health AI assistant. Analyze the provided health data and generate personalized insights.
         
-        Patient: ${appointment.patient.firstName} ${appointment.patient.lastName}
-        Age: ${appointment.patient.age || 'Not specified'}
-        Appointment Date: ${appointment.appointmentDate}
-        Type: ${appointment.type}
+        HEALTH GOALS: ${JSON.stringify(goals || [])}
+        VITALS: ${JSON.stringify(vitals || {})}
+        RECENT SYMPTOMS: ${JSON.stringify(symptoms || [])}
+        LIFESTYLE: ${JSON.stringify(lifestyle || {})}
         
-        Consultation Notes:
-        - Symptoms: ${consultationNotes.symptoms || appointment.symptoms?.join(', ') || 'None recorded'}
-        - Diagnosis: ${consultationNotes.diagnosis || 'Not specified'}
-        - Treatment: ${consultationNotes.treatment || 'Not specified'}
-        - Recommendations: ${consultationNotes.recommendations || 'None'}
-        
-        Prescriptions: ${prescriptions?.map(p => `${p.medication} - ${p.dosage} - ${p.frequency}`).join(', ') || 'None'}
-        
-        Generate a professional medical summary including:
-        1. Clinical Assessment
-        2. Diagnosis Summary
-        3. Treatment Plan
-        4. Medication Summary
-        5. Follow-up Requirements
-        6. Patient Education Points
-        7. Prognosis
-        
-        Format as JSON:
+        Provide a JSON response with:
         {
-          "clinicalAssessment": "detailed assessment",
-          "diagnosisSummary": "primary and secondary diagnoses",
-          "treatmentPlan": "current treatment approach",
-          "medicationSummary": "prescribed medications and rationale",
-          "followUpRequired": true/false,
-          "followUpInstructions": "follow-up details",
-          "patientEducation": ["education point 1", "education point 2"],
-          "prognosis": "expected outcome",
-          "redFlags": ["warning sign 1", "warning sign 2"],
-          "lifestyleRecommendations": ["recommendation 1", "recommendation 2"]
-        }
-      `;
-
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const aiResponse = response.text();
-
-      let summary;
-      try {
-        summary = JSON.parse(aiResponse);
-      } catch (parseError) {
-        summary = {
-          summary: aiResponse,
-          note: 'Summary generated successfully'
-        };
-      }
-
-      // Log summary generation
-      logger.audit('AI appointment summary generated', req.user._id, {
-        appointmentId,
-        patientId: appointment.patient._id,
-        generatedBy: req.user._id,
-        ip: req.ip
-      });
-
-      res.json({
-        success: true,
-        message: 'Appointment summary generated',
-        data: {
-          summary,
-          appointmentId,
-          patientName: `${appointment.patient.firstName} ${appointment.patient.lastName}`,
-          summaryId: `summary_${Date.now()}_${appointmentId}`,
-          generatedAt: new Date().toISOString()
-        }
-      });
-
-    } catch (error) {
-      logger.error('Appointment summary AI error:', error);
-      res.status(500).json({
-        error: true,
-        message: 'Summary generation service temporarily unavailable'
-      });
-    }
-  })
-);
-
-/**
- * @route   GET /api/ai/health-insights/:patientId
- * @desc    Generate personalized health insights
- * @access  Private (Patient or Doctor with permission)
- */
-router.get('/health-insights/:patientId',
-  authenticate,
-  validateObjectId('patientId'),
-  handleValidationErrors,
-  asyncHandler(async (req, res) => {
-    const { patientId } = req.params;
-
-    // Check permissions
-    const hasAccess = 
-      req.user._id.toString() === patientId ||
-      req.user.role === 'doctor' ||
-      req.user.role === 'admin';
-
-    if (!hasAccess) {
-      return res.status(403).json({
-        error: true,
-        message: 'Access denied'
-      });
-    }
-
-    const patient = await User.findById(patientId);
-    if (!patient) {
-      return res.status(404).json({
-        error: true,
-        message: 'Patient not found'
-      });
-    }
-
-    // Get recent appointments
-    const recentAppointments = await Appointment.find({
-      patient: patientId,
-      status: 'completed'
-    })
-    .sort({ appointmentDate: -1 })
-    .limit(5)
-    .lean();
-
-    try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
-      const prompt = `
-        Generate personalized health insights for patient:
-        
-        Patient Info:
-        - Age: ${patient.age || 'Not specified'}
-        - Gender: ${patient.gender || 'Not specified'}
-        - Medical History: ${patient.medicalInfo?.medicalConditions?.join(', ') || 'None'}
-        - Current Medications: ${patient.medicalInfo?.medications?.join(', ') || 'None'}
-        - Allergies: ${patient.medicalInfo?.allergies?.join(', ') || 'None'}
-        - BMI: ${patient.medicalInfo?.bmi || 'Not calculated'}
-        
-        Recent Medical Visits: ${recentAppointments.length} in the last period
-        Recent Diagnoses: ${recentAppointments.map(apt => apt.consultationNotes?.diagnosis).filter(Boolean).join(', ') || 'None'}
-        
-        Provide personalized health insights:
-        1. Health Status Overview
-        2. Risk Factor Analysis
-        3. Preventive Care Recommendations
-        4. Lifestyle Recommendations
-        5. Screening Recommendations
-        6. Health Goals Suggestions
-        7. Warning Signs to Watch
-        
-        Format as JSON:
-        {
-          "healthStatusOverview": "overall health assessment",
-          "riskFactors": ["risk1", "risk2"],
-          "preventiveCare": ["screening1", "screening2"],
-          "lifestyleRecommendations": [
-            {
-              "category": "diet|exercise|lifestyle",
-              "recommendation": "specific recommendation",
-              "rationale": "why this is important"
+          "healthScore": {
+            "overall": 85,
+            "explanation": "explanation of score",
+            "factors": {
+              "diet": 80,
+              "exercise": 90,
+              "sleep": 75,
+              "stress": 70,
+              "preventiveCare": 85
             }
-          ],
-          "healthGoals": ["goal1", "goal2"],
-          "warningSignsToWatch": ["sign1", "sign2"],
-          "nextSteps": ["step1", "step2"],
-          "overallScore": "number 1-10",
-          "improvementAreas": ["area1", "area2"]
+          },
+          "insights": {
+            "keyTrends": ["trend 1", "trend 2"],
+            "riskAnalysis": [{"risk": "risk name", "level": "low|medium|high", "description": "description"}],
+            "strengths": ["strength 1", "strength 2"],
+            "improvements": ["improvement area 1", "improvement area 2"]
+          },
+          "recommendations": {
+            "nutrition": [{"recommendation": "advice", "rationale": "reason"}],
+            "exercise": [{"recommendation": "advice", "frequency": "how often"}],
+            "mentalHealth": [{"recommendation": "advice", "techniques": ["technique 1"]}],
+            "sleep": [{"recommendation": "advice", "implementation": "how to"}],
+            "preventiveCare": [{"recommendation": "advice", "timeframe": "when"}]
+          }
         }
       `;
 
@@ -670,39 +257,200 @@ router.get('/health-insights/:patientId',
 
       let insights;
       try {
-        insights = JSON.parse(aiResponse);
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          insights = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No valid JSON found in AI response');
+        }
       } catch (parseError) {
-        insights = {
-          overview: aiResponse,
-          note: 'Insights generated successfully'
-        };
+        throw new Error('Failed to parse AI response');
       }
-
-      // Log insights generation
-      logger.audit('Health insights generated', req.user._id, {
-        patientId,
-        generatedBy: req.user._id,
-        overallScore: insights.overallScore,
-        ip: req.ip
-      });
 
       res.json({
         success: true,
-        message: 'Health insights generated',
+        message: 'Health insights generated successfully',
         data: {
-          insights,
-          patientId,
-          insightsId: `insights_${Date.now()}_${patientId}`,
+          ...insights,
+          insightsId: `health_${Date.now()}_${req.user._id}`,
           generatedAt: new Date().toISOString(),
-          disclaimer: 'These insights are AI-generated and should not replace professional medical advice.'
+          patientId: req.user._id
         }
       });
 
     } catch (error) {
       logger.error('Health insights AI error:', error);
-      res.status(500).json({
-        error: true,
-        message: 'Health insights service temporarily unavailable'
+      
+      res.status(503).json({
+        success: false,
+        error: 'AI Service Temporarily Unavailable',
+        message: 'Our AI service is currently unavailable. Please try again later.',
+        service: 'health-insights'
+      });
+    }
+  })
+);
+
+/**
+ * @route   POST /api/ai/drug-interaction
+ * @desc    Check for drug interactions using AI
+ * @access  Private
+ */
+router.post('/drug-interaction',
+  authenticate,
+  rateLimitSensitive,
+  asyncHandler(async (req, res) => {
+    const { medications, supplements, conditions } = req.body;
+
+    if (!medications || medications.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide at least one medication'
+      });
+    }
+
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      
+      const prompt = `
+        Analyze the following medications for potential drug interactions:
+        
+        MEDICATIONS: ${JSON.stringify(medications)}
+        SUPPLEMENTS: ${JSON.stringify(supplements || [])}
+        CONDITIONS: ${JSON.stringify(conditions || [])}
+        
+        Provide a JSON response with:
+        {
+          "riskLevel": "low|moderate|high|critical",
+          "interactions": [
+            {
+              "medications": ["drug1", "drug2"],
+              "severity": "minor|moderate|major|severe",
+              "description": "interaction description",
+              "recommendations": ["recommendation 1", "recommendation 2"]
+            }
+          ],
+          "warnings": ["warning 1", "warning 2"],
+          "monitoringAdvice": ["monitoring point 1", "monitoring point 2"],
+          "alternatives": [
+            {
+              "original": "original medication",
+              "alternatives": ["alternative 1", "alternative 2"],
+              "reason": "why alternative is suggested"
+            }
+          ]
+        }
+      `;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const aiResponse = response.text();
+
+      let analysis;
+      try {
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysis = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No valid JSON found in AI response');
+        }
+      } catch (parseError) {
+        throw new Error('Failed to parse AI response');
+      }
+
+      res.json({
+        success: true,
+        message: 'Drug interaction analysis completed',
+        data: analysis
+      });
+
+    } catch (error) {
+      logger.error('Drug interaction AI error:', error);
+      
+      res.status(503).json({
+        success: false,
+        error: 'AI Service Temporarily Unavailable',
+        message: 'Our AI service is currently unavailable. Please try again later.',
+        service: 'drug-interaction'
+      });
+    }
+  })
+);
+
+/**
+ * @route   POST /api/ai/emergency-guidance
+ * @desc    Get AI emergency guidance
+ * @access  Private
+ */
+router.post('/emergency-guidance',
+  authenticate,
+  rateLimitSensitive,
+  asyncHandler(async (req, res) => {
+    const { situation, severity, symptoms } = req.body;
+
+    if (!situation) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please describe the emergency situation'
+      });
+    }
+
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      
+      const prompt = `
+        EMERGENCY MEDICAL SITUATION: ${situation}
+        SEVERITY: ${severity || 'Not specified'}
+        SYMPTOMS: ${JSON.stringify(symptoms || [])}
+        
+        Provide immediate emergency guidance in JSON format:
+        {
+          "callEmergency": true/false,
+          "urgencyLevel": "immediate|urgent|standard",
+          "immediateActions": ["action 1", "action 2"],
+          "whatToDo": ["step 1", "step 2"],
+          "whatNotToDo": ["avoid 1", "avoid 2"],
+          "warningSign": ["warning 1", "warning 2"],
+          "timeline": "when to act",
+          "emergencyContacts": {
+            "general": "911",
+            "poison": "1-800-222-1222"
+          }
+        }
+        
+        CRITICAL: Always prioritize safety and recommend calling emergency services for life-threatening conditions.
+      `;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const aiResponse = response.text();
+
+      let guidance;
+      try {
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          guidance = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No valid JSON found in AI response');
+        }
+      } catch (parseError) {
+        throw new Error('Failed to parse AI response');
+      }
+
+      res.json({
+        success: true,
+        message: 'Emergency guidance provided',
+        data: guidance
+      });
+
+    } catch (error) {
+      logger.error('Emergency guidance AI error:', error);
+      
+      res.status(503).json({
+        success: false,
+        error: 'AI Service Temporarily Unavailable',
+        message: 'Our AI service is currently unavailable. For immediate emergencies, call 911.',
+        service: 'emergency-guidance'
       });
     }
   })

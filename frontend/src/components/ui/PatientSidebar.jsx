@@ -47,6 +47,13 @@ const PatientSidebar = () => {
       icon: 'MessageCircle',
       path: '/messaging',
       isActive: location.pathname === '/messaging'
+    },
+    {
+      id: 'ai-services',
+      label: 'AI Health Assistant',
+      icon: 'Brain',
+      path: '/ai-services',
+      isActive: location.pathname === '/ai-services'
     }
   ];
 

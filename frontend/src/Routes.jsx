@@ -11,6 +11,7 @@ import AppointmentBooking from "./pages/appointment-booking";
 import HealthRecordsManagement from "./pages/health-records-management";
 import DoctorDashboard from "./pages/doctor-dashboard";
 import MessagingPage from "./pages/messaging";
+import AIServices from "./pages/ai-services";
 import ProfilePage from "./pages/profile";
 import NotFound from "./pages/NotFound";
 
@@ -188,6 +189,14 @@ const Routes = () => {
               <HealthcareRoute>
                 <MessagingPage />
               </HealthcareRoute>
+            } 
+          />
+          <Route 
+            path="/ai-services" 
+            element={
+              <PatientRoute>
+                <AIServices />
+              </PatientRoute>
             } 
           />
           <Route 

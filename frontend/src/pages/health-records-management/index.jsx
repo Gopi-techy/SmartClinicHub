@@ -14,6 +14,7 @@ import CategoryFilter from './components/CategoryFilter';
 import SearchAndFilters from './components/SearchAndFilters';
 import RecordPreviewModal from './components/RecordPreviewModal';
 import BulkActions from './components/BulkActions';
+import MedicalChatContainer from '../../components/ui/MedicalChatContainer';
 
 const HealthRecordsManagement = () => {
   const navigate = useNavigate();
@@ -393,6 +394,9 @@ const HealthRecordsManagement = () => {
         onDownload={handleDownload}
         onShare={handleShare}
       />
+
+      {/* Medical Chat Widget */}
+      <MedicalChatContainer />
     </div>
     </>
   );

@@ -14,6 +14,7 @@ import CalendarView from './components/CalendarView';
 import AppointmentTypeSelector from './components/AppointmentTypeSelector';
 import BookingConfirmation from './components/BookingConfirmation';
 import BookingProgressIndicator from './components/BookingProgressIndicator';
+import MedicalChatContainer from '../../components/ui/MedicalChatContainer';
 import doctorService from '../../services/doctorService';
 
 const AppointmentBooking = () => {
@@ -445,6 +446,9 @@ const AppointmentBooking = () => {
           )}
         </div>
       </main>
+
+      {/* Medical Chat Widget */}
+      <MedicalChatContainer />
     </div>
     </>
   );
