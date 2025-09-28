@@ -64,7 +64,7 @@ const config = {
 
   // Gemini AI configuration
   gemini: {
-    apiKey: process.env.GEMINI_API_KEY || 'AIzaSyCe8R7VPdWoBWZhHDbIS4nIjzuDhYZiB0M'
+    apiKey: process.env.GEMINI_API_KEY
   },
 
   oauth: {
