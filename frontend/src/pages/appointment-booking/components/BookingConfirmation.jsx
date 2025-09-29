@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
+import { useAuth } from '../../../contexts/AuthContext';
 
-const BookingConfirmation = ({ bookingData, onConfirm, onEdit }) => {
+const BookingConfirmation = ({ bookingData, onConfirm, onEdit, loading = false }) => {
   const [specialRequests, setSpecialRequests] = useState('');
   const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const { user } = useAuth();
 
   const formatDate = (date) => {
     return date.toLocaleDateString('en-US', {
@@ -33,12 +36,16 @@ const BookingConfirmation = ({ bookingData, onConfirm, onEdit }) => {
   };
 
   const handleConfirmBooking = () => {
+    setShowConfirmDialog(true);
+  };
+
+  const handleFinalConfirm = () => {
     const finalBookingData = {
       ...bookingData,
       specialRequests,
-      qrCode: 'QR_CODE_DATA_HERE',
       confirmationNumber: `APT-${Date.now().toString().slice(-6)}`
     };
+    setShowConfirmDialog(false);
     onConfirm(finalBookingData);
   };
 
@@ -158,19 +165,19 @@ END:VCALENDAR`;
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium text-muted-foreground">Full Name</label>
-            <p className="font-medium text-foreground">John Smith</p>
+            <p className="font-medium text-foreground">{user?.firstName} {user?.lastName}</p>
           </div>
           <div>
             <label className="text-sm font-medium text-muted-foreground">Date of Birth</label>
-            <p className="font-medium text-foreground">March 15, 1985</p>
+            <p className="font-medium text-foreground">{user?.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : 'N/A'}</p>
           </div>
           <div>
             <label className="text-sm font-medium text-muted-foreground">Phone Number</label>
-            <p className="font-medium text-foreground">(555) 123-4567</p>
+            <p className="font-medium text-foreground">{user?.phone || 'N/A'}</p>
           </div>
           <div>
             <label className="text-sm font-medium text-muted-foreground">Email</label>
-            <p className="font-medium text-foreground">john.smith@email.com</p>
+            <p className="font-medium text-foreground">{user?.email || 'N/A'}</p>
           </div>
         </div>
       </div>
@@ -188,27 +195,7 @@ END:VCALENDAR`;
       </div>
 
       {/* QR Code Section */}
-      <div className="bg-card border border-border rounded-lg p-6 text-center">
-        <h4 className="font-semibold text-foreground mb-4">Quick Check-in</h4>
-        {isGeneratingQR ? (
-          <div className="space-y-3">
-            <div className="w-32 h-32 mx-auto bg-muted rounded-lg flex items-center justify-center">
-              <Icon name="Loader2" size={32} className="animate-spin text-muted-foreground" />
-            </div>
-            <p className="text-sm text-muted-foreground">Generating QR code...</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="w-32 h-32 mx-auto bg-muted rounded-lg flex items-center justify-center">
-              <Icon name="QrCode" size={48} className="text-muted-foreground" />
-            </div>
-            <p className="text-sm text-muted-foreground">QR code will be generated after confirmation</p>
-            <Button variant="outline" size="sm" onClick={generateQRCode}>
-              Preview QR Code
-            </Button>
-          </div>
-        )}
-      </div>
+
 
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -224,11 +211,13 @@ END:VCALENDAR`;
         <Button
           variant="primary"
           fullWidth
-          iconName="Check"
+          iconName={loading ? "Loader2" : "Check"}
           iconPosition="left"
           onClick={handleConfirmBooking}
+          disabled={loading}
+          className={loading ? "animate-spin" : ""}
         >
-          Confirm Appointment
+          {loading ? 'Booking Appointment...' : 'Confirm Appointment'}
         </Button>
       </div>
 
@@ -240,6 +229,53 @@ END:VCALENDAR`;
           <button className="text-primary hover:underline">Privacy Policy</button>
         </p>
       </div>
+
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-lg shadow-xl max-w-md w-full mx-auto p-6">
+            <div className="text-center mb-6">
+              <Icon name="AlertCircle" size={48} className="mx-auto text-amber-500 mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">Confirm Appointment Booking</h3>
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to book this appointment? This action cannot be undone and may incur charges.
+              </p>
+            </div>
+
+            <div className="bg-muted/50 rounded-lg p-4 mb-6">
+              <div className="text-sm space-y-1">
+                <p><span className="font-medium">Doctor:</span> {bookingData.selectedProvider.name}</p>
+                <p><span className="font-medium">Date:</span> {formatDate(bookingData.selectedDate)}</p>
+                <p><span className="font-medium">Time:</span> {formatTime(bookingData.selectedTime)}</p>
+                <p><span className="font-medium">Type:</span> {bookingData.appointmentType === 'telehealth' ? 'Telehealth' : 'In-Person'}</p>
+                <p><span className="font-medium">Fee:</span> ${bookingData.selectedProvider.consultationFee}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                variant="outline"
+                fullWidth
+                onClick={() => setShowConfirmDialog(false)}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                fullWidth
+                onClick={handleFinalConfirm}
+                disabled={loading}
+                iconName={loading ? "Loader2" : "Check"}
+                iconPosition="left"
+                className={loading ? "animate-spin" : ""}
+              >
+                {loading ? 'Booking...' : 'Yes, Book Appointment'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

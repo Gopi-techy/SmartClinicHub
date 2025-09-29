@@ -6,7 +6,9 @@ const {
   getAppointmentById,
   getDoctorPatients,
   getAllPatients,
-  cancelAppointment
+  cancelAppointment,
+  getAvailableSlots,
+  getAppointmentStats
 } = require('../controllers/appointmentController');
 
 const { authenticate, authorize } = require('../middleware/auth');
@@ -65,6 +67,26 @@ router.get('/doctor/patients',
   authenticate,
   authorize('doctor'),
   asyncHandler(getDoctorPatients)
+);
+
+/**
+ * @route   GET /api/appointments/stats
+ * @desc    Get appointment statistics for dashboard
+ * @access  Private
+ */
+router.get('/stats',
+  authenticate,
+  asyncHandler(getAppointmentStats)
+);
+
+/**
+ * @route   GET /api/appointments/doctor/:doctorId/slots/:date
+ * @desc    Get available time slots for a doctor on a specific date
+ * @access  Private
+ */
+router.get('/doctor/:doctorId/slots/:date',
+  authenticate,
+  asyncHandler(getAvailableSlots)
 );
 
 /**

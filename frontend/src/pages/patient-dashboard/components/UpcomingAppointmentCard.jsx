@@ -58,7 +58,7 @@ const UpcomingAppointmentCard = ({ appointment, onReschedule, onCancel }) => {
               <Icon name="User" size={16} className="text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Doctor</p>
-                <p className="font-medium text-foreground">{appointment.doctor}</p>
+                <p className="font-medium text-foreground">{typeof appointment.doctor === 'object' ? `${appointment.doctor.firstName || appointment.doctor.name || ''} ${appointment.doctor.lastName || ''}`.trim() : appointment.doctor}</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">

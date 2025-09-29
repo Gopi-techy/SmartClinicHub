@@ -14,11 +14,16 @@ import CalendarView from './components/CalendarView';
 import AppointmentTypeSelector from './components/AppointmentTypeSelector';
 import BookingConfirmation from './components/BookingConfirmation';
 import BookingProgressIndicator from './components/BookingProgressIndicator';
+import AppointmentStatusModal from './components/AppointmentStatusModal';
+import BookingLoadingModal from './components/BookingLoadingModal';
 import MedicalChatContainer from '../../components/ui/MedicalChatContainer';
+import appointmentService from '../../services/appointmentService';
+import { useAuth } from '../../contexts/AuthContext';
 import doctorService from '../../services/doctorService';
 
 const AppointmentBooking = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [userRole, setUserRole] = useState('patient');
   const [isEmergencyMode, setIsEmergencyMode] = useState(false);
@@ -32,6 +37,12 @@ const AppointmentBooking = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [pagination, setPagination] = useState({});
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingError, setBookingError] = useState(null);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [statusModalType, setStatusModalType] = useState('success');
+  const [statusModalData, setStatusModalData] = useState(null);
 
   useEffect(() => {
     const role = localStorage.getItem('userRole') || 'patient';
@@ -55,6 +66,55 @@ const AppointmentBooking = () => {
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
+
+  // Fetch available slots when provider and date are selected
+  useEffect(() => {
+    if (selectedProvider && selectedDate) {
+      fetchAvailableSlots();
+    }
+  }, [selectedProvider, selectedDate]);
+
+  const fetchAvailableSlots = async () => {
+    if (!selectedProvider || !selectedDate) return;
+
+    try {
+      setLoading(true);
+      const dateString = selectedDate.toISOString().split('T')[0];
+      const response = await appointmentService.getAvailableSlots(selectedProvider.id, dateString);
+      
+      if (response.success) {
+        setAvailableSlots(response.availableSlots);
+      } else {
+        // Fallback to default slots if API fails
+        setAvailableSlots(defaultTimeSlots.map(time => ({
+          startTime: time,
+          endTime: calculateEndTime(time, 30),
+          available: true
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching available slots:', error);
+      // Fallback to default slots
+      setAvailableSlots(defaultTimeSlots.map(time => ({
+        startTime: time,
+        endTime: calculateEndTime(time, 30),
+        available: true
+      })));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateEndTime = (startTime, duration = 30) => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startMinutes = hours * 60 + minutes;
+    const endMinutes = startMinutes + duration;
+    
+    const endHours = Math.floor(endMinutes / 60);
+    const remainingMinutes = endMinutes % 60;
+    
+    return `${endHours.toString().padStart(2, '0')}:${remainingMinutes.toString().padStart(2, '0')}`;
+  };
 
   const fetchDoctors = async () => {
     try {
@@ -112,7 +172,7 @@ const AppointmentBooking = () => {
     { id: 'surgery', name: 'Surgery', icon: 'Scissors' }
   ];
 
-  const availableSlots = [
+  const defaultTimeSlots = [
     "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
     "18:00", "18:30", "19:00", "19:30"
@@ -147,11 +207,73 @@ const AppointmentBooking = () => {
     }
   };
 
-  const handleBookingConfirm = (bookingData) => {
-    // Handle booking confirmation
-    console.log('Booking confirmed:', bookingData);
-    // Navigate to success page or dashboard
-    navigate('/patient-dashboard');
+  const handleBookingConfirm = async (bookingData) => {
+    try {
+      setBookingLoading(true);
+      setBookingError(null);
+
+      // Prepare appointment data
+      const appointmentData = {
+        doctorId: selectedProvider.id,
+        appointmentDate: selectedDate.toISOString().split('T')[0],
+        startTime: selectedTime,
+        endTime: calculateEndTime(selectedTime, 30),
+        duration: 30,
+        type: 'consultation',
+        mode: appointmentType === 'telehealth' ? 'online' : 'in-person',
+        chiefComplaint: bookingData.specialRequests || '',
+        urgencyLevel: 'medium',
+        consultationFee: selectedProvider.consultationFee || 0
+      };
+
+      // Validate appointment data
+      const validation = appointmentService.validateAppointmentData(appointmentData);
+      if (!validation.isValid) {
+        setBookingError(validation.errors.join(', '));
+        return;
+      }
+
+      // Book the appointment
+      const response = await appointmentService.bookAppointment(appointmentData);
+      
+      if (response.success) {
+        // Show success status modal
+        const appointmentInfo = {
+          bookingReference: response.data.bookingReference || `APT-${Date.now()}`,
+          doctorName: selectedProvider.name,
+          date: selectedDate.toISOString(),
+          time: selectedTime,
+          mode: appointmentType,
+          meetingUrl: response.data.appointment?.meetingUrl
+        };
+        setStatusModalData(appointmentInfo);
+        setStatusModalType('success');
+        setShowStatusModal(true);
+      } else {
+        // Check if it's a conflict error
+        if (response.message?.includes('conflict') || response.message?.includes('not available')) {
+          setStatusModalData({
+            date: selectedDate.toISOString(),
+            time: selectedTime
+          });
+          setStatusModalType('conflict');
+          setShowStatusModal(true);
+        } else {
+          setStatusModalData(null);
+          setStatusModalType('error');
+          setShowStatusModal(true);
+        }
+        setBookingError(response.message || 'Failed to book appointment');
+      }
+    } catch (error) {
+      console.error('Booking confirmation error:', error);
+      setStatusModalData(null);
+      setStatusModalType('error');
+      setShowStatusModal(true);
+      setBookingError(error.message || 'An error occurred while booking the appointment');
+    } finally {
+      setBookingLoading(false);
+    }
   };
 
   const handleEditStep = (step) => {
@@ -170,6 +292,21 @@ const AppointmentBooking = () => {
         break;
       default:
         break;
+    }
+  };
+
+  const handleStatusModalClose = () => {
+    setShowStatusModal(false);
+    setStatusModalData(null);
+    setBookingError(null);
+    
+    // If it was a success, navigate to dashboard
+    if (statusModalType === 'success') {
+      navigate('/patient-dashboard');
+    } else if (statusModalType === 'conflict') {
+      // Go back to time selection
+      setCurrentStep(2);
+      setSelectedTime(null);
     }
   };
 
@@ -372,9 +509,13 @@ const AppointmentBooking = () => {
                 <CalendarView
                   selectedDate={selectedDate}
                   onDateSelect={handleDateSelect}
-                  availableSlots={availableSlots}
+                  availableSlots={availableSlots.length > 0 ? availableSlots : defaultTimeSlots.map(time => ({
+                    startTime: time,
+                    available: true
+                  }))}
                   onTimeSelect={handleTimeSelect}
                   selectedTime={selectedTime}
+                  loading={loading}
                 />
               </div>
             )}
@@ -416,16 +557,29 @@ const AppointmentBooking = () => {
             )}
 
             {currentStep === 4 && (
-              <BookingConfirmation
-                bookingData={{
-                  selectedProvider,
-                  selectedDate,
-                  selectedTime,
-                  appointmentType
-                }}
-                onConfirm={handleBookingConfirm}
-                onEdit={handleEditStep}
-              />
+              <div className="space-y-4">
+                {bookingError && (
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                    <div className="flex items-center space-x-2">
+                      <Icon name="AlertCircle" size={20} className="text-destructive" />
+                      <p className="text-destructive font-medium">Booking Error</p>
+                    </div>
+                    <p className="text-destructive mt-1">{bookingError}</p>
+                  </div>
+                )}
+                
+                <BookingConfirmation
+                  bookingData={{
+                    selectedProvider,
+                    selectedDate,
+                    selectedTime,
+                    appointmentType
+                  }}
+                  onConfirm={handleBookingConfirm}
+                  onEdit={handleEditStep}
+                  loading={bookingLoading}
+                />
+              </div>
             )}
           </div>
 
@@ -449,6 +603,20 @@ const AppointmentBooking = () => {
 
       {/* Medical Chat Widget */}
       <MedicalChatContainer />
+      
+      {/* Loading Modal */}
+      <BookingLoadingModal
+        isOpen={bookingLoading}
+        message="Processing your appointment booking..."
+      />
+      
+      {/* Status Modal */}
+      <AppointmentStatusModal
+        isOpen={showStatusModal}
+        onClose={handleStatusModalClose}
+        status={statusModalType}
+        appointmentData={statusModalData}
+      />
     </div>
     </>
   );

@@ -14,6 +14,7 @@ import MessagingPage from "./pages/messaging";
 import AIServices from "./pages/ai-services";
 import ProfilePage from "./pages/profile";
 import NotFound from "./pages/NotFound";
+import DebugAuth from "./pages/DebugAuth";
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -217,6 +218,9 @@ const Routes = () => {
                 <Navigate to="/login-registration" replace />
             } 
           />
+
+          {/* Debug Route - Remove in production */}
+          <Route path="/debug-auth" element={<DebugAuth />} />
 
           {/* 404 Route */}
           <Route path="*" element={<NotFound />} />

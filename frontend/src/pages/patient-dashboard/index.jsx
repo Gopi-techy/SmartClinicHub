@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { useAuth } from '../../contexts/AuthContext';
 import patientDashboardService from '../../utils/patientDashboardService';
+import appointmentService from '../../services/appointmentService';
 import RoleBasedHeader from '../../components/ui/RoleBasedHeader';
 import PatientBottomTabs from '../../components/ui/PatientBottomTabs';
 import PatientSidebar from '../../components/ui/PatientSidebar';
@@ -104,11 +105,16 @@ const PatientDashboard = () => {
   };
 
   const handleCancelAppointment = async (appointmentId) => {
+    if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
     try {
-      // TODO: Implement real API call to cancel appointment
-      console.log('Cancelling appointment:', appointmentId);
+      await appointmentService.cancelAppointment(appointmentId, 'Cancelled by patient');
+      // Refresh dashboard data
+      if (user && userRole === 'patient') {
+        await fetchDashboardData();
+      }
     } catch (error) {
       console.error('Error cancelling appointment:', error);
+      alert('Failed to cancel appointment. Please try again.');
     }
   };
 

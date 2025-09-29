@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { useAuth } from '../../contexts/AuthContext';
+import appointmentService from '../../services/appointmentService';
 import RoleBasedHeader from '../../components/ui/RoleBasedHeader';
 import ProviderSidebar from '../../components/ui/ProviderSidebar';
 import TodaySchedule from './components/TodaySchedule';
@@ -22,6 +23,7 @@ const DoctorDashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [isNotesPanelOpen, setIsNotesPanelOpen] = useState(false);
+  const [appointmentStats, setAppointmentStats] = useState(null);
 
   useEffect(() => {
     // Check authentication
@@ -52,32 +54,25 @@ const DoctorDashboard = () => {
       setLoading(true);
       setError(null);
       
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-            const response = await fetch('/api/appointments/doctor/patients', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      // Use the appointment service
+      const response = await appointmentService.getDoctorPatients({
+        status: 'all',
+        limit: 50,
+        page: 1
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.success) {
+      if (response.success) {
         // Transform the data to match frontend expectations
-        const transformedPatients = data.patients.map(patient => ({
+        const transformedPatients = response.patients.map(patient => ({
           id: patient.id,
           name: patient.name,
           patientId: patient.patientId,
-          appointmentTime: formatTime(patient.appointmentTime),
+          appointmentTime: patient.appointmentTime,
           duration: patient.duration,
           reason: patient.reason,
-          status: mapStatus(patient.status),
-          priority: patient.priority === 'high' ? 'high' : patient.priority === 'medium' ? 'medium' : 'low',
+          status: patient.status,
+          priority: patient.priority,
+          appointmentDate: patient.appointmentDate,
           bookingReference: patient.bookingReference,
           type: patient.type,
           mode: patient.mode,
@@ -86,10 +81,16 @@ const DoctorDashboard = () => {
         
         setPatients(transformedPatients);
         
-        // Also update today's schedule with the same data
-        const scheduleData = transformedPatients.slice(0, 5).map((patient, index) => ({
+        // Filter for today's appointments and create schedule
+        const today = new Date().toISOString().split('T')[0];
+        const todayAppointments = transformedPatients.filter(patient => 
+          patient.appointmentDate && new Date(patient.appointmentDate).toISOString().split('T')[0] === today
+        );
+        
+        // Create today's schedule data
+        const scheduleData = todayAppointments.slice(0, 5).map((patient, index) => ({
           id: patient.id,
-          time: patient.appointmentTime,
+          time: formatTime(patient.appointmentTime),
           patientName: patient.name,
           patientAge: calculateAge(patient.patient?.dateOfBirth),
           appointmentType: patient.type?.charAt(0).toUpperCase() + patient.type?.slice(1) || 'Consultation',
@@ -99,11 +100,11 @@ const DoctorDashboard = () => {
         
         setTodaySchedule(scheduleData);
       } else {
-        setError(data.message || 'Failed to fetch patients');
+        setError(response.message || 'Failed to fetch patients');
       }
     } catch (error) {
       console.error('Error fetching patients:', error);
-      setError('Failed to load patient data. Please try again.');
+      setError(error.message || 'Failed to load patient data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -147,27 +148,66 @@ const DoctorDashboard = () => {
   useEffect(() => {
     if (user && userRole === 'doctor') {
       fetchPatients();
+      fetchAppointmentStats();
     }
   }, [user, userRole]);
+
+  const fetchAppointmentStats = async () => {
+    try {
+      const response = await appointmentService.getAppointmentStats('month');
+      if (response.success) {
+        setAppointmentStats(response.stats);
+      }
+    } catch (error) {
+      console.error('Error fetching appointment stats:', error);
+    }
+  };
 
   const handlePatientSelect = (patient) => {
     setSelectedPatient(patient);
     setIsNotesPanelOpen(true);
   };
 
-  const handleStartAppointment = (appointmentId) => {
-    // Navigate to appointment interface
-    navigate(`/appointment/${appointmentId}`);
+  const handleStartAppointment = async (appointmentId) => {
+    try {
+      // Update appointment status to in-progress
+      await appointmentService.updateAppointmentStatus(appointmentId, 'in-progress');
+      
+      // Navigate to appointment interface
+      navigate(`/appointment/${appointmentId}`);
+    } catch (error) {
+      console.error('Error starting appointment:', error);
+      // Could show toast notification here
+    }
   };
 
   const handleRescheduleAppointment = (appointmentId) => {
-    // Open reschedule modal
-    console.log('Reschedule appointment:', appointmentId);
+    // Navigate to reschedule interface
+    navigate(`/appointment-booking?reschedule=${appointmentId}`);
   };
 
-  const handleCancelAppointment = (appointmentId) => {
-    // Cancel appointment
-    console.log('Cancel appointment:', appointmentId);
+  const handleCancelAppointment = async (appointmentId) => {
+    try {
+      const reason = prompt('Please enter cancellation reason:');
+      if (reason) {
+        await appointmentService.cancelAppointment(appointmentId, reason);
+        // Refresh the appointments list
+        fetchPatients();
+      }
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      // Could show toast notification here
+    }
+  };
+
+  const handleCompleteAppointment = async (appointmentId) => {
+    try {
+      await appointmentService.updateAppointmentStatus(appointmentId, 'completed');
+      // Refresh the appointments list
+      fetchPatients();
+    } catch (error) {
+      console.error('Error completing appointment:', error);
+    }
   };
 
   const handleScheduleAppointment = () => {
@@ -258,11 +298,55 @@ const DoctorDashboard = () => {
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
                 {/* Left Column - Schedule and Patients */}
                 <div className="lg:col-span-3 space-y-6">
+                  {/* Quick Stats */}
+                  {appointmentStats && (
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                      <div className="bg-card border border-border rounded-lg p-4">
+                        <div className="flex items-center space-x-2">
+                          <Icon name="Calendar" size={20} className="text-primary" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Today</p>
+                            <p className="text-xl font-semibold text-foreground">{appointmentStats.today}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-card border border-border rounded-lg p-4">
+                        <div className="flex items-center space-x-2">
+                          <Icon name="Clock" size={20} className="text-blue-500" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Upcoming</p>
+                            <p className="text-xl font-semibold text-foreground">{appointmentStats.upcoming}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-card border border-border rounded-lg p-4">
+                        <div className="flex items-center space-x-2">
+                          <Icon name="Users" size={20} className="text-green-500" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">This Month</p>
+                            <p className="text-xl font-semibold text-foreground">{appointmentStats.total}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-card border border-border rounded-lg p-4">
+                        <div className="flex items-center space-x-2">
+                          <Icon name="DollarSign" size={20} className="text-yellow-500" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Revenue</p>
+                            <p className="text-xl font-semibold text-foreground">${appointmentStats.totalRevenue || 0}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Today's Schedule */}
                   <TodaySchedule 
                     appointments={todaySchedule}
                     onAppointmentClick={handleStartAppointment}
                     onReschedule={handleRescheduleAppointment}
+                    onCancel={handleCancelAppointment}
+                    onComplete={handleCompleteAppointment}
                   />
 
                   {/* Patient Management */}
@@ -271,7 +355,7 @@ const DoctorDashboard = () => {
                   <div className="flex items-center justify-center py-12">
                     <div className="flex items-center space-x-3">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                      <span className="text-muted-foreground">Loading patients...</span>
+                      <span className="text-muted-foreground">Loading appointments...</span>
                     </div>
                   </div>
                 </div>
@@ -286,7 +370,7 @@ const DoctorDashboard = () => {
                         onClick={fetchPatients}
                         iconName="RefreshCw"
                       >
-                        Try Again
+                        Retry
                       </Button>
                     </div>
                   </div>
@@ -295,6 +379,10 @@ const DoctorDashboard = () => {
                 <PatientManagementTable 
                   patients={patients}
                   onPatientSelect={handlePatientSelect}
+                  onStartAppointment={handleStartAppointment}
+                  onRescheduleAppointment={handleRescheduleAppointment}
+                  onCancelAppointment={handleCancelAppointment}
+                  onCompleteAppointment={handleCompleteAppointment}
                   onCreatePrescription={(patient) => console.log('Create prescription for:', patient)}
                 />
               )}

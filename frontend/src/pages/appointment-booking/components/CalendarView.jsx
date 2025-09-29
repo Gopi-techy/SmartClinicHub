@@ -81,7 +81,11 @@ const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect
   };
 
   const days = getDaysInMonth(currentMonth);
-  const { morning, afternoon, evening } = groupTimeSlots(availableSlots);
+  // Support both array of strings and array of objects with startTime
+  const slotStrings = Array.isArray(availableSlots) && availableSlots.length > 0 && typeof availableSlots[0] === 'object'
+    ? availableSlots.map(slot => slot.startTime)
+    : availableSlots;
+  const { morning, afternoon, evening } = groupTimeSlots(slotStrings);
 
   return (
     <div className="space-y-6">

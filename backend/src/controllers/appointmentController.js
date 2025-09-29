@@ -14,11 +14,13 @@ const bookAppointment = async (req, res) => {
       appointmentDate,
       startTime,
       endTime,
+      duration = 30,
       type = 'consultation',
       mode = 'in-person',
       symptoms,
       chiefComplaint,
-      urgencyLevel = 'medium'
+      urgencyLevel = 'medium',
+      consultationFee = 0
     } = req.body;
 
     const patientId = req.user._id;
@@ -38,67 +40,132 @@ const bookAppointment = async (req, res) => {
       });
     }
 
-    // Check for appointment conflicts
-    const conflictingAppointment = await Appointment.findOne({
-      doctorId,
-      appointmentDate,
-      $or: [
-        {
-          startTime: { $lt: endTime },
-          endTime: { $gt: startTime }
-        }
-      ],
-      status: { $nin: ['cancelled', 'completed'] }
-    });
-
-    if (conflictingAppointment) {
-      return res.status(409).json({
+    // Validate appointment date (cannot be in the past)
+    const appointmentDateTime = new Date(`${appointmentDate}T${startTime}:00`);
+    if (appointmentDateTime <= new Date()) {
+      return res.status(400).json({
         success: false,
-        message: 'Doctor is not available at the requested time'
+        message: 'Cannot book appointment in the past'
       });
     }
 
-    // Create appointment
-    const appointment = await Appointment.create({
-      patientId,
-      doctorId,
-      appointmentDate,
+    // Check for appointment conflicts with correct field names
+    const conflictingAppointments = await Appointment.findConflicts(
+      doctorId, 
+      new Date(appointmentDate), 
+      startTime, 
+      endTime || calculateEndTime(startTime, duration)
+    );
+
+    if (conflictingAppointments.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'Doctor is not available at the requested time',
+        conflicts: conflictingAppointments.map(appt => ({
+          date: appt.appointmentDate,
+          startTime: appt.startTime,
+          endTime: appt.endTime
+        }))
+      });
+    }
+
+    // Calculate end time if not provided
+    const finalEndTime = endTime || calculateEndTime(startTime, duration);
+
+
+    // Create appointment and save to trigger pre-save middleware (bookingReference)
+    // Generate bookingReference manually (same as model logic)
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substr(2, 5);
+    const bookingReference = `APP-${timestamp.toUpperCase()}-${random.toUpperCase()}`;
+    const appointment = new Appointment({
+      patient: patientId,
+      doctor: doctorId,
+      appointmentDate: new Date(appointmentDate),
       startTime,
-      endTime,
+      endTime: finalEndTime,
+      duration,
       type,
       mode,
       symptoms: symptoms || [],
-      chiefComplaint,
+      chiefComplaint: chiefComplaint || '',
       urgencyLevel,
-      status: 'scheduled'
+      consultationFee,
+      status: 'scheduled',
+      createdBy: patientId,
+      bookingReference
     });
+    await appointment.save();
 
     // Populate appointment details
     await appointment.populate([
-      { path: 'patientId', select: 'fullName email phone' },
-      { path: 'doctorId', select: 'fullName email specialization' }
+      { 
+        path: 'patient', 
+        select: 'firstName lastName email phone profilePicture' 
+      },
+      { 
+        path: 'doctor', 
+        select: 'firstName lastName professionalInfo.specialization professionalInfo.consultationFee' 
+      }
     ]);
+
+    // Generate meeting room for online appointments
+    if (mode === 'online') {
+      appointment.generateMeetingRoom();
+      await appointment.save();
+    }
+
+    // Emit real-time notification to doctor
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`doctor-${doctorId}`).emit('new-appointment', {
+        appointmentId: appointment._id,
+        patientName: `${appointment.patient.firstName} ${appointment.patient.lastName}`,
+        appointmentDate: appointment.appointmentDate,
+        startTime: appointment.startTime,
+        type: appointment.type,
+        mode: appointment.mode
+      });
+    }
 
     logger.info(`Appointment booked successfully`, {
       appointmentId: appointment._id,
       patientId,
       doctorId,
-      appointmentDate
+      appointmentDate,
+      bookingReference: appointment.bookingReference
     });
 
     res.status(201).json({
       success: true,
       message: 'Appointment booked successfully',
-      appointment
+      data: {
+        appointment,
+        bookingReference: appointment.bookingReference,
+        meetingUrl: appointment.videoCallDetails?.meetingUrl || null
+      }
     });
   } catch (error) {
     logger.error('Book appointment error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while booking appointment'
+      message: 'Server error while booking appointment',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
+
+// Helper function to calculate end time
+function calculateEndTime(startTime, duration) {
+  const [hours, minutes] = startTime.split(':').map(Number);
+  const startMinutes = hours * 60 + minutes;
+  const endMinutes = startMinutes + duration;
+  
+  const endHours = Math.floor(endMinutes / 60);
+  const remainingMinutes = endMinutes % 60;
+  
+  return `${endHours.toString().padStart(2, '0')}:${remainingMinutes.toString().padStart(2, '0')}`;
+}
 
 /**
  * @desc    Get appointments for a user
@@ -109,19 +176,24 @@ const getAppointments = async (req, res) => {
   try {
     const userId = req.user._id;
     const userRole = req.user.role;
-    const { status, date, limit = 10, page = 1 } = req.query;
+    const { status, date, limit = 10, page = 1, upcoming = false } = req.query;
 
-    let query = {};
+    let query = { isDeleted: false };
 
     // Set query based on user role
     if (userRole === 'patient') {
-      query.patientId = userId;
+      query.patient = userId;
     } else if (userRole === 'doctor') {
-      query.doctorId = userId;
+      query.doctor = userId;
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
     }
 
     // Add filters
-    if (status) {
+    if (status && status !== 'all') {
       query.status = status;
     }
 
@@ -136,24 +208,41 @@ const getAppointments = async (req, res) => {
       };
     }
 
+    // Filter for upcoming appointments only
+    if (upcoming === 'true') {
+      query.appointmentDate = { $gte: new Date() };
+      query.status = { $in: ['scheduled', 'confirmed'] };
+    }
+
     const skip = (page - 1) * limit;
 
     const appointments = await Appointment.find(query)
-      .populate('patientId', 'fullName email phone')
-      .populate('doctorId', 'fullName email specialization')
-      .sort({ appointmentDate: -1, startTime: -1 })
+      .populate('patient', 'firstName lastName email phone profilePicture')
+      .populate('doctor', 'firstName lastName professionalInfo.specialization professionalInfo.title')
+      .sort({ appointmentDate: 1, startTime: 1 })
       .limit(parseInt(limit))
-      .skip(skip);
+      .skip(skip)
+      .lean();
 
     const total = await Appointment.countDocuments(query);
 
+    // Transform data for frontend
+    const transformedAppointments = appointments.map(appointment => ({
+      ...appointment,
+      id: appointment._id,
+      patientName: appointment.patient ? `${appointment.patient.firstName} ${appointment.patient.lastName}` : 'Unknown Patient',
+      doctorName: appointment.doctor ? `${appointment.doctor.firstName} ${appointment.doctor.lastName}` : 'Unknown Doctor',
+      doctorSpecialization: appointment.doctor?.professionalInfo?.specialization || 'General Practice',
+      timeSlot: `${appointment.startTime} - ${appointment.endTime}`
+    }));
+
     res.status(200).json({
       success: true,
-      count: appointments.length,
+      count: transformedAppointments.length,
       total,
       page: parseInt(page),
       pages: Math.ceil(total / limit),
-      appointments
+      data: transformedAppointments
     });
   } catch (error) {
     logger.error('Get appointments error:', error);
@@ -187,8 +276,8 @@ const updateAppointmentStatus = async (req, res) => {
 
     // Check authorization
     const isAuthorized = 
-      appointment.patientId.toString() === userId.toString() ||
-      appointment.doctorId.toString() === userId.toString() ||
+      appointment.patient.toString() === userId.toString() ||
+      appointment.doctor.toString() === userId.toString() ||
       userRole === 'admin';
 
     if (!isAuthorized) {
@@ -212,8 +301,8 @@ const updateAppointmentStatus = async (req, res) => {
     if (io) {
       io.emit('appointment-update', {
         appointmentId: appointment._id,
-        patientId: appointment.patientId,
-        doctorId: appointment.doctorId,
+        patientId: appointment.patient,
+        doctorId: appointment.doctor,
         status,
         updatedAt: appointment.updatedAt
       });
@@ -245,8 +334,8 @@ const getAppointmentById = async (req, res) => {
     const userRole = req.user.role;
 
     const appointment = await Appointment.findById(id)
-      .populate('patientId', 'fullName email phone dateOfBirth gender')
-      .populate('doctorId', 'fullName email specialization');
+      .populate('patient', 'firstName lastName email phone dateOfBirth gender profilePicture')
+      .populate('doctor', 'firstName lastName professionalInfo.specialization professionalInfo.title');
 
     if (!appointment) {
       return res.status(404).json({
@@ -257,8 +346,8 @@ const getAppointmentById = async (req, res) => {
 
     // Check authorization
     const isAuthorized = 
-      appointment.patientId._id.toString() === userId.toString() ||
-      appointment.doctorId._id.toString() === userId.toString() ||
+      appointment.patient._id.toString() === userId.toString() ||
+      appointment.doctor._id.toString() === userId.toString() ||
       userRole === 'admin';
 
     if (!isAuthorized) {
@@ -449,8 +538,8 @@ const cancelAppointment = async (req, res) => {
 
     // Check authorization (only patient or doctor can cancel)
     const isAuthorized = 
-      appointment.patientId.toString() === userId.toString() ||
-      appointment.doctorId.toString() === userId.toString();
+      appointment.patient.toString() === userId.toString() ||
+      appointment.doctor.toString() === userId.toString();
 
     if (!isAuthorized) {
       return res.status(403).json({
@@ -476,9 +565,11 @@ const cancelAppointment = async (req, res) => {
 
     // Update appointment status
     appointment.status = 'cancelled';
-    appointment.cancellationReason = reason;
-    appointment.cancelledBy = userId;
-    appointment.cancelledAt = new Date();
+    appointment.cancellation = {
+      cancelledBy: userId,
+      cancelledAt: new Date(),
+      reason: reason || 'No reason provided'
+    };
 
     await appointment.save();
 
@@ -487,12 +578,18 @@ const cancelAppointment = async (req, res) => {
     if (io) {
       io.emit('appointment-cancelled', {
         appointmentId: appointment._id,
-        patientId: appointment.patientId,
-        doctorId: appointment.doctorId,
+        patientId: appointment.patient,
+        doctorId: appointment.doctor,
         cancelledBy: userId,
-        reason
+        reason: reason || 'No reason provided'
       });
     }
+
+    logger.info(`Appointment cancelled`, {
+      appointmentId: appointment._id,
+      cancelledBy: userId,
+      reason
+    });
 
     res.status(200).json({
       success: true,
@@ -507,6 +604,183 @@ const cancelAppointment = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Get available time slots for a doctor on a specific date
+ * @route   GET /api/appointments/doctor/:doctorId/slots/:date
+ * @access  Private
+ */
+const getAvailableSlots = async (req, res) => {
+  try {
+    const { doctorId, date } = req.params;
+    const appointmentDate = new Date(date);
+
+    // Check if doctor exists
+    const doctor = await User.findOne({
+      _id: doctorId,
+      role: 'doctor',
+      isActive: true,
+      isDeleted: false
+    });
+
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Doctor not found'
+      });
+    }
+
+    // Get existing appointments for the date
+    const existingAppointments = await Appointment.find({
+      doctor: doctorId,
+      appointmentDate,
+      status: { $in: ['scheduled', 'confirmed', 'in-progress'] },
+      isDeleted: false
+    }).select('startTime endTime').lean();
+
+    // Define available time slots (9 AM to 6 PM, 30-minute slots)
+    const workingHours = {
+      start: 9, // 9 AM
+      end: 18,  // 6 PM
+      slotDuration: 30 // 30 minutes
+    };
+
+    const availableSlots = [];
+    
+    for (let hour = workingHours.start; hour < workingHours.end; hour++) {
+      for (let minute = 0; minute < 60; minute += workingHours.slotDuration) {
+        const timeSlot = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        const endTime = calculateEndTime(timeSlot, workingHours.slotDuration);
+        
+        // Check if this slot conflicts with existing appointments
+        const hasConflict = existingAppointments.some(appointment => {
+          return (timeSlot < appointment.endTime && endTime > appointment.startTime);
+        });
+
+        if (!hasConflict) {
+          availableSlots.push({
+            startTime: timeSlot,
+            endTime: endTime,
+            available: true
+          });
+        }
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      date: appointmentDate,
+      doctorId,
+      availableSlots,
+      totalSlots: availableSlots.length
+    });
+  } catch (error) {
+    logger.error('Get available slots error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching available slots'
+    });
+  }
+};
+
+/**
+ * @desc    Get appointment statistics for dashboard
+ * @route   GET /api/appointments/stats
+ * @access  Private
+ */
+const getAppointmentStats = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const userRole = req.user.role;
+    const { period = 'month' } = req.query; // week, month, year
+
+    let query = { isDeleted: false };
+    
+    if (userRole === 'patient') {
+      query.patient = userId;
+    } else if (userRole === 'doctor') {
+      query.doctor = userId;
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    // Calculate date range
+    const now = new Date();
+    let startDate;
+    
+    switch (period) {
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      default: // month
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+
+    query.appointmentDate = { $gte: startDate };
+
+    // Get appointment counts by status
+    const stats = await Appointment.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+          totalRevenue: { $sum: '$consultationFee' }
+        }
+      }
+    ]);
+
+    // Get upcoming appointments
+    const upcomingAppointments = await Appointment.countDocuments({
+      ...query,
+      appointmentDate: { $gte: now },
+      status: { $in: ['scheduled', 'confirmed'] }
+    });
+
+    // Get today's appointments
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(todayStart);
+    todayEnd.setDate(todayEnd.getDate() + 1);
+
+    const todayAppointments = await Appointment.countDocuments({
+      ...query,
+      appointmentDate: { $gte: todayStart, $lt: todayEnd }
+    });
+
+    // Format response
+    const formattedStats = {
+      total: stats.reduce((sum, stat) => sum + stat.count, 0),
+      upcoming: upcomingAppointments,
+      today: todayAppointments,
+      byStatus: stats.reduce((acc, stat) => {
+        acc[stat._id] = {
+          count: stat.count,
+          revenue: stat.totalRevenue || 0
+        };
+        return acc;
+      }, {}),
+      totalRevenue: stats.reduce((sum, stat) => sum + (stat.totalRevenue || 0), 0),
+      period
+    };
+
+    res.status(200).json({
+      success: true,
+      stats: formattedStats
+    });
+  } catch (error) {
+    logger.error('Get appointment stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching appointment statistics'
+    });
+  }
+};
+
 module.exports = {
   bookAppointment,
   getAppointments,
@@ -514,5 +788,7 @@ module.exports = {
   getAppointmentById,
   getDoctorPatients,
   getAllPatients,
-  cancelAppointment
+  cancelAppointment,
+  getAvailableSlots,
+  getAppointmentStats
 };
