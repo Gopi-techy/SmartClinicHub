@@ -40,12 +40,26 @@ const bookAppointment = async (req, res) => {
       });
     }
 
-    // Validate appointment date (cannot be in the past)
-    const appointmentDateTime = new Date(`${appointmentDate}T${startTime}:00`);
-    if (appointmentDateTime <= new Date()) {
+    // Validate appointment must be at least 1 hour in advance
+    const now = new Date();
+    
+    // Parse date and time properly to avoid timezone issues
+    // appointmentDate format: "2025-10-02", startTime format: "09:00"
+    const [year, month, day] = appointmentDate.split('-').map(Number);
+    const [hours, minutes] = startTime.split(':').map(Number);
+    
+    // Create date in local timezone
+    const appointmentDateTime = new Date(year, month - 1, day, hours, minutes, 0);
+    
+    // Require at least 1 hour advance booking
+    const oneHourFromNow = new Date(now.getTime() + (60 * 60 * 1000));
+    
+    // Check if appointment is at least 1 hour from now
+    if (appointmentDateTime.getTime() < oneHourFromNow.getTime()) {
+      const hoursUntilAppointment = ((appointmentDateTime.getTime() - now.getTime()) / (60 * 60 * 1000)).toFixed(1);
       return res.status(400).json({
         success: false,
-        message: 'Cannot book appointment in the past'
+        message: `Appointments must be booked at least 1 hour in advance. This appointment is ${hoursUntilAppointment} hours away.`
       });
     }
 
@@ -526,6 +540,8 @@ const cancelAppointment = async (req, res) => {
     const { id } = req.params;
     const { reason } = req.body;
     const userId = req.user._id;
+    
+    logger.info('Cancel appointment request received', { appointmentId: id, userId });
 
     const appointment = await Appointment.findById(id);
 
@@ -563,15 +579,15 @@ const cancelAppointment = async (req, res) => {
       });
     }
 
-    // Update appointment status
-    appointment.status = 'cancelled';
-    appointment.cancellation = {
-      cancelledBy: userId,
-      cancelledAt: new Date(),
-      reason: reason || 'No reason provided'
-    };
-
-    await appointment.save();
+    // Delete the appointment from database (hard delete)
+    logger.info(`Starting appointment deletion`, { appointmentId: id });
+    
+    const deleteResult = await Appointment.findByIdAndDelete(id);
+    
+    logger.info(`Appointment deleted from database`, { 
+      appointmentId: id,
+      deleteResult: deleteResult ? 'success' : 'not found' 
+    });
 
     // Emit real-time update
     const io = req.app.get('io');
@@ -585,15 +601,15 @@ const cancelAppointment = async (req, res) => {
       });
     }
 
-    logger.info(`Appointment cancelled`, {
+    logger.info(`Appointment deleted`, {
       appointmentId: appointment._id,
-      cancelledBy: userId,
+      deletedBy: userId,
       reason
     });
-
+    
     res.status(200).json({
       success: true,
-      message: 'Appointment cancelled successfully'
+      message: 'Appointment deleted successfully'
     });
   } catch (error) {
     logger.error('Cancel appointment error:', error);

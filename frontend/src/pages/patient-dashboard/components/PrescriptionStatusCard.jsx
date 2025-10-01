@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import PrescriptionsList from './PrescriptionsList';
 
 const PrescriptionStatusCard = ({ prescriptions = [] }) => {
   // Ensure prescriptions is always an array
   const safePrescriptions = Array.isArray(prescriptions) ? prescriptions : [];
+  const [showAllPrescriptions, setShowAllPrescriptions] = useState(false);
   
   const getStatusColor = (status) => {
     switch (status) {
@@ -116,6 +118,7 @@ const PrescriptionStatusCard = ({ prescriptions = [] }) => {
             iconName="FileText"
             iconPosition="left"
             className="flex-1"
+            onClick={() => setShowAllPrescriptions(true)}
           >
             View All
           </Button>
@@ -137,6 +140,26 @@ const PrescriptionStatusCard = ({ prescriptions = [] }) => {
           >
             Download List
           </Button>
+        </div>
+      )}
+
+      {/* Prescription List Modal */}
+      {showAllPrescriptions && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-lg shadow-xl max-w-4xl w-full border border-border overflow-auto max-h-[90vh]">
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <h3 className="text-lg font-semibold text-foreground">All Prescriptions</h3>
+              <button
+                onClick={() => setShowAllPrescriptions(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Icon name="X" size={20} />
+              </button>
+            </div>
+            <div className="p-4">
+              <PrescriptionsList />
+            </div>
+          </div>
         </div>
       )}
     </div>

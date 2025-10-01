@@ -43,6 +43,8 @@ const AppointmentBooking = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [statusModalType, setStatusModalType] = useState('success');
   const [statusModalData, setStatusModalData] = useState(null);
+  const [showErrorToast, setShowErrorToast] = useState(false);
+  const [errorToastMessage, setErrorToastMessage] = useState('');
 
   useEffect(() => {
     const role = localStorage.getItem('userRole') || 'patient';
@@ -213,9 +215,15 @@ const AppointmentBooking = () => {
       setBookingError(null);
 
       // Prepare appointment data
+      // Format date in local timezone (avoid UTC conversion which can shift dates)
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDate.getDate()).padStart(2, '0');
+      const localDateString = `${year}-${month}-${day}`;
+      
       const appointmentData = {
         doctorId: selectedProvider.id,
-        appointmentDate: selectedDate.toISOString().split('T')[0],
+        appointmentDate: localDateString,
         startTime: selectedTime,
         endTime: calculateEndTime(selectedTime, 30),
         duration: 30,
@@ -229,7 +237,10 @@ const AppointmentBooking = () => {
       // Validate appointment data
       const validation = appointmentService.validateAppointmentData(appointmentData);
       if (!validation.isValid) {
-        setBookingError(validation.errors.join(', '));
+        // Show error in modal instead
+        setStatusModalType('error');
+        setStatusModalData({ message: validation.errors.join(', ') });
+        setShowStatusModal(true);
         return;
       }
 
@@ -263,14 +274,14 @@ const AppointmentBooking = () => {
           setStatusModalType('error');
           setShowStatusModal(true);
         }
-        setBookingError(response.message || 'Failed to book appointment');
+        // Don't set bookingError here - the modal will handle it
       }
     } catch (error) {
       console.error('Booking confirmation error:', error);
       setStatusModalData(null);
       setStatusModalType('error');
       setShowStatusModal(true);
-      setBookingError(error.message || 'An error occurred while booking the appointment');
+      // Don't set bookingError here - the modal will handle it
     } finally {
       setBookingLoading(false);
     }
@@ -558,16 +569,6 @@ const AppointmentBooking = () => {
 
             {currentStep === 4 && (
               <div className="space-y-4">
-                {bookingError && (
-                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-                    <div className="flex items-center space-x-2">
-                      <Icon name="AlertCircle" size={20} className="text-destructive" />
-                      <p className="text-destructive font-medium">Booking Error</p>
-                    </div>
-                    <p className="text-destructive mt-1">{bookingError}</p>
-                  </div>
-                )}
-                
                 <BookingConfirmation
                   bookingData={{
                     selectedProvider,

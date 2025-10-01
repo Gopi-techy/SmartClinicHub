@@ -16,10 +16,22 @@ class AppointmentService {
 
   // Handle API response
   async handleResponse(response) {
-    const data = await response.json();
+    let data;
+    const contentType = response.headers.get('content-type');
+    
+    try {
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        data = { message: text };
+      }
+    } catch (parseError) {
+      throw new Error('Failed to parse server response');
+    }
     
     if (!response.ok) {
-      throw new Error(data.message || 'An error occurred');
+      throw new Error(data.message || data.error || 'An error occurred');
     }
     
     return data;
@@ -100,15 +112,28 @@ class AppointmentService {
   // Cancel appointment
   async cancelAppointment(appointmentId, reason = '') {
     try {
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const response = await fetch(`${this.baseURL}/${appointmentId}`, {
         method: 'DELETE',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({ reason })
+        headers: {
+          ...this.getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ reason }),
+        signal: controller.signal
       });
 
-      return await this.handleResponse(response);
+      clearTimeout(timeoutId);
+      
+      const result = await this.handleResponse(response);
+      return result;
     } catch (error) {
-      console.error('Cancel appointment error:', error);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout - please try again');
+      }
       throw error;
     }
   }
@@ -249,11 +274,23 @@ class AppointmentService {
       data.type = 'consultation'; // Default value
     }
 
-    // Check if appointment is in the future
+    // Check if appointment is at least 1 hour in advance
     if (data.appointmentDate && data.startTime) {
-      const appointmentDateTime = new Date(`${data.appointmentDate}T${data.startTime}:00`);
-      if (appointmentDateTime <= new Date()) {
-        errors.push('Appointment must be scheduled for a future date and time');
+      const now = new Date();
+      
+      // Parse date and time properly to avoid timezone issues
+      // appointmentDate format: "2025-10-02", startTime format: "09:00"
+      const [year, month, day] = data.appointmentDate.split('-').map(Number);
+      const [hours, minutes] = data.startTime.split(':').map(Number);
+      
+      // Create date in local timezone
+      const appointmentDateTime = new Date(year, month - 1, day, hours, minutes, 0);
+      const oneHourFromNow = new Date(now.getTime() + (60 * 60 * 1000));
+      
+      // Check if appointment is at least 1 hour from now
+      if (appointmentDateTime.getTime() < oneHourFromNow.getTime()) {
+        const hoursUntilAppointment = ((appointmentDateTime.getTime() - now.getTime()) / (60 * 60 * 1000)).toFixed(1);
+        errors.push(`Appointments must be booked at least 1 hour in advance. This appointment is ${hoursUntilAppointment} hours away.`);
       }
     }
 

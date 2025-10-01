@@ -96,7 +96,7 @@ router.get('/doctor/:doctorId/slots/:date',
  */
 router.get('/:id',
   authenticate,
-  validateObjectId,
+  ...validateObjectId('id'),
   handleValidationErrors,
   asyncHandler(getAppointmentById)
 );
@@ -108,7 +108,7 @@ router.get('/:id',
  */
 router.put('/:id/status',
   authenticate,
-  validateObjectId,
+  ...validateObjectId('id'),
   handleValidationErrors,
   asyncHandler(updateAppointmentStatus)
 );
@@ -120,7 +120,7 @@ router.put('/:id/status',
  */
 router.delete('/:id',
   authenticate,
-  validateObjectId,
+  ...validateObjectId('id'),
   handleValidationErrors,
   asyncHandler(cancelAppointment)
 );

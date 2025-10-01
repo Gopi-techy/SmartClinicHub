@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet';
 import { useAuth } from '../../contexts/AuthContext';
 import patientDashboardService from '../../utils/patientDashboardService';
 import appointmentService from '../../services/appointmentService';
+import prescriptionService from '../../services/prescriptionService';
 import RoleBasedHeader from '../../components/ui/RoleBasedHeader';
 import PatientBottomTabs from '../../components/ui/PatientBottomTabs';
 import PatientSidebar from '../../components/ui/PatientSidebar';
@@ -28,6 +29,13 @@ const PatientDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [error, setError] = useState(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [showErrorToast, setShowErrorToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   useEffect(() => {
     // Check authentication
@@ -99,23 +107,93 @@ const PatientDashboard = () => {
   const healthMetrics = dashboardData?.healthMetrics || [];
   const prescriptions = dashboardData?.prescriptions || [];
   const recentActivities = dashboardData?.activities || [];
+  
+  // Debug: Log appointment structure
+  if (upcomingAppointment) {
+    console.log('Upcoming appointment:', upcomingAppointment);
+    console.log('Appointment ID:', upcomingAppointment._id || upcomingAppointment.id);
+  }
 
   const handleRescheduleAppointment = (appointmentId) => {
     navigate('/appointment-booking', { state: { reschedule: appointmentId } });
   };
 
-  const handleCancelAppointment = async (appointmentId) => {
-    if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
+  const handleBookAppointment = () => {
+    navigate('/appointment-booking');
+  };
+
+  const handleCancelAppointment = (appointmentId) => {
+    setAppointmentToCancel(appointmentId);
+    setShowCancelModal(true);
+  };
+
+  const confirmCancelAppointment = async () => {
+    if (!appointmentToCancel) return;
+    
+    console.log('Starting cancel appointment...', appointmentToCancel);
+    setIsCancelling(true);
+    
     try {
-      await appointmentService.cancelAppointment(appointmentId, 'Cancelled by patient');
+      console.log('Calling cancelAppointment API...');
+      const result = await appointmentService.cancelAppointment(
+        appointmentToCancel, 
+        cancelReason || 'Cancelled by patient'
+      );
+      
+      console.log('Cancel result:', result);
+      
       // Refresh dashboard data
-      if (user && userRole === 'patient') {
-        await fetchDashboardData();
-      }
+      console.log('Refreshing dashboard data...');
+      const fetchDashboardData = async () => {
+        const [
+          appointmentsData,
+          healthMetricsData,
+          prescriptionsData,
+          activitiesData
+        ] = await Promise.all([
+          patientDashboardService.getUpcomingAppointments(),
+          patientDashboardService.getHealthMetrics(),
+          patientDashboardService.getPrescriptionStatus(),
+          patientDashboardService.getRecentActivities()
+        ]);
+
+        setDashboardData({
+          appointments: appointmentsData,
+          healthMetrics: healthMetricsData,
+          prescriptions: prescriptionsData,
+          activities: activitiesData
+        });
+      };
+
+      await fetchDashboardData();
+      
+      console.log('Dashboard refreshed successfully');
+      
+      // Close modal and reset state
+      setShowCancelModal(false);
+      setAppointmentToCancel(null);
+      setCancelReason('');
+      
+      // Show success toast
+      setToastMessage('Appointment cancelled successfully');
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
     } catch (error) {
-      console.error('Error cancelling appointment:', error);
-      alert('Failed to cancel appointment. Please try again.');
+      console.error('Cancel appointment error:', error);
+      // Show error toast
+      setToastMessage(error.message || 'Failed to cancel appointment. Please try again.');
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 3000);
+    } finally {
+      console.log('Setting isCancelling to false');
+      setIsCancelling(false);
     }
+  };
+
+  const closeCancelModal = () => {
+    setShowCancelModal(false);
+    setAppointmentToCancel(null);
+    setCancelReason('');
   };
 
   const toggleDarkMode = () => {
@@ -260,6 +338,7 @@ const PatientDashboard = () => {
                 appointment={upcomingAppointment}
                 onReschedule={handleRescheduleAppointment}
                 onCancel={handleCancelAppointment}
+                onBookAppointment={handleBookAppointment}
               />
 
               {/* Health Metrics */}
@@ -313,6 +392,145 @@ const PatientDashboard = () => {
 
       {/* Medical Chat Widget */}
       <MedicalChatContainer />
+
+      {/* Cancel Appointment Modal */}
+      {showCancelModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            // Close modal if clicking the backdrop
+            if (e.target === e.currentTarget && !isCancelling) {
+              closeCancelModal();
+            }
+          }}
+        >
+          <div 
+            className="bg-card rounded-lg shadow-xl max-w-md w-full border border-border animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-destructive/10 rounded-full flex items-center justify-center">
+                  <Icon name="AlertTriangle" size={20} className="text-destructive" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground">Cancel Appointment</h3>
+              </div>
+              <button
+                onClick={closeCancelModal}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                disabled={isCancelling}
+              >
+                <Icon name="X" size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to cancel this appointment? This action cannot be undone.
+              </p>
+
+              <div className="space-y-2">
+                <label htmlFor="cancelReason" className="text-sm font-medium text-foreground">
+                  Reason for cancellation (optional)
+                </label>
+                <textarea
+                  id="cancelReason"
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Please let us know why you're cancelling..."
+                  className="w-full px-3 py-2 bg-background border border-input rounded-md text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                  rows={3}
+                  disabled={isCancelling}
+                />
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-3 flex items-start space-x-2">
+                <Icon name="Info" size={16} className="text-primary mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-muted-foreground">
+                  If you need to reschedule instead of cancelling, please use the "Reschedule" option.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-border bg-muted/20">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={closeCancelModal}
+                disabled={isCancelling}
+              >
+                Keep Appointment
+              </Button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Button clicked!', { isCancelling, appointmentToCancel });
+                  confirmCancelAppointment();
+                }}
+                disabled={isCancelling}
+                className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isCancelling ? (
+                  <>
+                    <Icon name="Loader2" size={16} className="animate-spin mr-2" />
+                    <span>Cancelling...</span>
+                  </>
+                ) : (
+                  <>
+                    <Icon name="Trash2" size={16} className="mr-2" />
+                    <span>Cancel Appointment</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Toast */}
+      {showSuccessToast && (
+        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5 duration-300">
+          <div className="bg-primary/10 border border-primary/20 backdrop-blur-sm px-6 py-4 rounded-lg shadow-lg flex items-center space-x-3 min-w-[320px]">
+            <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <Icon name="CheckCircle2" size={20} className="text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-sm text-foreground">{toastMessage}</p>
+            </div>
+            <button
+              onClick={() => setShowSuccessToast(false)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Icon name="X" size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Error Toast */}
+      {showErrorToast && (
+        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5 duration-300">
+          <div className="bg-destructive/10 border border-destructive/20 backdrop-blur-sm px-6 py-4 rounded-lg shadow-lg flex items-center space-x-3 min-w-[320px]">
+            <div className="w-8 h-8 bg-destructive/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <Icon name="XCircle" size={20} className="text-destructive" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-sm text-foreground">{toastMessage}</p>
+            </div>
+            <button
+              onClick={() => setShowErrorToast(false)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Icon name="X" size={18} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
     </>
   );

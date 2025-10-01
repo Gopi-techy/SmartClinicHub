@@ -26,6 +26,7 @@ const pharmacyRoutes = require('./src/routes/pharmacy');
 const adminRoutes = require('./src/routes/admin');
 const healthRoutes = require('./src/routes/health');
 const patientDashboardRoutes = require('./src/routes/patient-dashboard');
+// const prescriptionRoutes = require('./src/routes/prescriptions');
 let messagingRoutes;
 try {
   console.log('📨 Loading messaging routes...');
@@ -166,6 +167,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/patient-dashboard', patientDashboardRoutes);
 app.use('/api/messaging', messagingRoutes);
+// app.use('/api/prescriptions', prescriptionRoutes);
 
 // Handle undefined routes
 app.use(notFound);

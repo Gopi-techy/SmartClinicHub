@@ -60,6 +60,13 @@ router.get('/test', (req, res) => {
 // Send a new message
 router.post('/send', authenticate, validateSendMessage, messagingController.sendMessage);
 
+// Create a new conversation with a doctor/patient
+router.post('/create-conversation', authenticate, [
+  body('receiverId')
+    .isMongoId()
+    .withMessage('Valid receiver ID is required')
+], messagingController.createConversation);
+
 // Get all conversations for the authenticated user
 router.get('/conversations', authenticate, messagingController.getConversations);
 

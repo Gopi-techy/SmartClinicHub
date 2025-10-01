@@ -39,6 +39,8 @@ const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect
     if (!date) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    
+    // Allow dates from today onwards (time slots will be filtered to 1 hour from now)
     return date >= today;
   };
 

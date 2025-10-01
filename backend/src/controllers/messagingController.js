@@ -525,6 +525,102 @@ const reportMessage = async (req, res) => {
   }
 };
 
+// Create a new conversation
+const createConversation = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
+    const { receiverId } = req.body;
+    const senderId = req.user.userId;
+
+    // Check if receiver exists and is not the same as sender
+    if (senderId === receiverId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot create conversation with yourself'
+      });
+    }
+
+    // Check if receiver exists
+    const receiver = await User.findById(receiverId);
+    if (!receiver) {
+      return res.status(404).json({
+        success: false,
+        message: 'Receiver not found'
+      });
+    }
+
+    // Check user roles - patients can only message doctors and vice versa
+    const sender = await User.findById(senderId);
+    if (sender.role === receiver.role) {
+      return res.status(403).json({
+        success: false,
+        message: `${sender.role}s can only message ${sender.role === 'patient' ? 'doctors' : 'patients'}`
+      });
+    }
+
+    // Check if a conversation already exists
+    const existingMessages = await Message.findOne({
+      $or: [
+        { sender: senderId, receiver: receiverId },
+        { sender: receiverId, receiver: senderId }
+      ]
+    });
+
+    if (existingMessages) {
+      // Conversation already exists
+      // Get the conversation details
+      const conversations = await Message.getUserConversations(senderId);
+      const existingConversation = conversations.find(c => 
+        c.participant._id.toString() === receiverId
+      );
+      
+      return res.json({
+        success: true,
+        message: 'Conversation already exists',
+        data: existingConversation || { participant: receiver }
+      });
+    }
+
+    // Create initial message
+    const initialMessage = new Message({
+      sender: senderId,
+      receiver: receiverId,
+      content: `Hello, I'd like to start a conversation.`,
+      messageType: 'text'
+    });
+
+    await initialMessage.save();
+
+    // Get the conversation
+    const conversations = await Message.getUserConversations(senderId);
+    const newConversation = conversations.find(c => 
+      c.participant._id.toString() === receiverId
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Conversation created successfully',
+      data: newConversation || { participant: receiver }
+    });
+
+  } catch (error) {
+    console.error('Create conversation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 // Block user
 const blockUser = async (req, res) => {
   try {
@@ -661,6 +757,7 @@ module.exports = {
   searchConversations,
   getOnlineUsers,
   reportMessage,
+  createConversation,
   blockUser,
   unblockUser,
   getBlockedUsers,

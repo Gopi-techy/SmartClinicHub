@@ -269,6 +269,49 @@ class MessagingService {
     }
   }
 
+  // Get all available doctors
+  async getAllDoctors(page = 1, limit = 50) {
+    try {
+      const response = await fetch(
+        `${this.apiUrl}/api/users/public/doctors?page=${page}&limit=${limit}`, 
+        {
+          method: 'GET',
+          headers: this.getAuthHeaders()
+        }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        return { 
+          success: true, 
+          doctors: data.data.doctors,
+          pagination: data.data.pagination 
+        };
+      }
+      return { success: false, message: 'Failed to fetch doctors' };
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+      return { success: false, message: 'Failed to fetch doctors' };
+    }
+  }
+
+  // Create a new conversation with a doctor
+  async createNewConversation(doctorId) {
+    try {
+      const response = await fetch(`${this.apiUrl}/api/messaging/create-conversation`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ receiverId: doctorId })
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      return { success: false, message: 'Failed to create conversation' };
+    }
+  }
+
   // Event Listeners
 
   // Listen for new messages

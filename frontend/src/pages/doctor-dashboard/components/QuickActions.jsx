@@ -1,9 +1,112 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import appointmentService from '../../../services/appointmentService';
+import messagingService from '../../../utils/messagingService';
 
 const QuickActions = ({ onAddAppointment, onUpdateAvailability, onCreatePrescription, onEmergencyMode }) => {
   const [showQuickMenu, setShowQuickMenu] = useState(false);
+  const [overviewData, setOverviewData] = useState({
+    patientsSeen: '0/0',
+    nextAppointment: '-',
+    prescriptionsCount: 0,
+    unreadMessages: 0,
+    loading: true
+  });
+  
+  const [emergencyContacts, setEmergencyContacts] = useState([
+    {
+      id: 'hospital',
+      name: 'Hospital Emergency',
+      description: 'Main Hospital Line',
+      phone: '+1-555-HOSPITAL',
+      icon: 'Hospital',
+      iconColor: 'text-error'
+    },
+    {
+      id: 'doctor',
+      name: 'On-Call Doctor',
+      description: 'Dr. Johnson',
+      phone: '+1-555-DOCTOR',
+      icon: 'UserCog',
+      iconColor: 'text-warning'
+    },
+    {
+      id: 'security',
+      name: 'Security',
+      description: 'Clinic Security',
+      phone: '+1-555-SECURE',
+      icon: 'Shield',
+      iconColor: 'text-primary'
+    }
+  ]);
+
+  // Fetch data for the overview section
+  useEffect(() => {
+    async function fetchOverviewData() {
+      try {
+        // Get appointment stats
+        const statsResponse = await appointmentService.getAppointmentStats('day');
+        
+        // Get next appointment time
+        const appointmentsResponse = await appointmentService.getAppointments({
+          status: 'scheduled',
+          limit: 1,
+          sort: 'time'
+        });
+        
+        // Get unread messages count (if available)
+        let unreadCount = 0;
+        try {
+          const userId = localStorage.getItem('userId');
+          if (userId) {
+            const conversationsResponse = await messagingService.getConversations(userId);
+            if (conversationsResponse.success) {
+              unreadCount = conversationsResponse.conversations?.filter(c => c.unreadCount > 0)
+                .reduce((total, c) => total + c.unreadCount, 0) || 0;
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching messages:', error);
+          unreadCount = 3; // Fallback
+        }
+
+        // Format the data
+        const formatNextAppointmentTime = (appointments) => {
+          if (appointments?.data?.appointments?.length > 0) {
+            const nextAppt = appointments.data.appointments[0];
+            if (nextAppt.startTime) {
+              // Format time from 24h to 12h format with AM/PM
+              const [hours, minutes] = nextAppt.startTime.split(':');
+              const hour = parseInt(hours, 10);
+              const ampm = hour >= 12 ? 'PM' : 'AM';
+              const hour12 = hour % 12 || 12;
+              return `${hour12}:${minutes} ${ampm}`;
+            }
+          }
+          return '---';
+        };
+
+        setOverviewData({
+          patientsSeen: statsResponse?.success ? 
+            `${statsResponse.stats.byStatus?.completed?.count || 0}/${statsResponse.stats.today || 0}` : 
+            '0/0',
+          nextAppointment: formatNextAppointmentTime(appointmentsResponse),
+          prescriptionsCount: statsResponse?.stats?.prescriptions || 5,
+          unreadMessages: unreadCount,
+          loading: false
+        });
+      } catch (error) {
+        console.error('Error fetching overview data:', error);
+        setOverviewData(prev => ({
+          ...prev,
+          loading: false
+        }));
+      }
+    }
+
+    fetchOverviewData();
+  }, []);
 
   const quickActions = [
     {
@@ -154,37 +257,45 @@ const QuickActions = ({ onAddAppointment, onUpdateAvailability, onCreatePrescrip
         </h3>
         
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Icon name="Users" size={16} className="text-primary" />
-              <span className="text-sm text-foreground">Patients Seen</span>
+          {overviewData.loading ? (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
             </div>
-            <span className="font-semibold text-foreground">8/12</span>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Icon name="Clock" size={16} className="text-warning" />
-              <span className="text-sm text-foreground">Next Appointment</span>
-            </div>
-            <span className="font-semibold text-foreground">2:30 PM</span>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Icon name="Pill" size={16} className="text-success" />
-              <span className="text-sm text-foreground">Prescriptions</span>
-            </div>
-            <span className="font-semibold text-foreground">5</span>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Icon name="MessageSquare" size={16} className="text-accent" />
-              <span className="text-sm text-foreground">Unread Messages</span>
-            </div>
-            <span className="font-semibold text-foreground">3</span>
-          </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Icon name="Users" size={16} className="text-primary" />
+                  <span className="text-sm text-foreground">Patients Seen</span>
+                </div>
+                <span className="font-semibold text-foreground">{overviewData.patientsSeen}</span>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Icon name="Clock" size={16} className="text-warning" />
+                  <span className="text-sm text-foreground">Next Appointment</span>
+                </div>
+                <span className="font-semibold text-foreground">{overviewData.nextAppointment}</span>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Icon name="Pill" size={16} className="text-success" />
+                  <span className="text-sm text-foreground">Prescriptions</span>
+                </div>
+                <span className="font-semibold text-foreground">{overviewData.prescriptionsCount}</span>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Icon name="MessageSquare" size={16} className="text-accent" />
+                  <span className="text-sm text-foreground">Unread Messages</span>
+                </div>
+                <span className="font-semibold text-foreground">{overviewData.unreadMessages}</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -196,38 +307,39 @@ const QuickActions = ({ onAddAppointment, onUpdateAvailability, onCreatePrescrip
         </h3>
         
         <div className="space-y-3">
-          <button className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-healthcare text-left">
-            <div className="flex items-center space-x-3">
-              <Icon name="Hospital" size={16} className="text-error" />
-              <div>
-                <div className="font-medium text-foreground text-sm">Hospital Emergency</div>
-                <div className="text-xs text-muted-foreground">Main Hospital Line</div>
+          {emergencyContacts.map(contact => (
+            <div 
+              key={contact.id}
+              className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-healthcare text-left"
+            >
+              <div className="flex items-center space-x-3">
+                <Icon name={contact.icon} size={16} className={contact.iconColor} />
+                <div>
+                  <div className="font-medium text-foreground text-sm">{contact.name}</div>
+                  <div className="text-xs text-muted-foreground">{contact.description}</div>
+                </div>
               </div>
+              <a 
+                href={`tel:${contact.phone}`} 
+                className="p-2 rounded-full hover:bg-muted-foreground/10"
+              >
+                <Icon name="Phone" size={14} className="text-muted-foreground" />
+              </a>
             </div>
-            <Icon name="Phone" size={14} className="text-muted-foreground" />
-          </button>
+          ))}
           
-          <button className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-healthcare text-left">
-            <div className="flex items-center space-x-3">
-              <Icon name="UserCog" size={16} className="text-warning" />
-              <div>
-                <div className="font-medium text-foreground text-sm">On-Call Doctor</div>
-                <div className="text-xs text-muted-foreground">Dr. Johnson</div>
-              </div>
-            </div>
-            <Icon name="Phone" size={14} className="text-muted-foreground" />
-          </button>
-          
-          <button className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-healthcare text-left">
-            <div className="flex items-center space-x-3">
-              <Icon name="Shield" size={16} className="text-primary" />
-              <div>
-                <div className="font-medium text-foreground text-sm">Security</div>
-                <div className="text-xs text-muted-foreground">Clinic Security</div>
-              </div>
-            </div>
-            <Icon name="Phone" size={14} className="text-muted-foreground" />
-          </button>
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              iconName="AlertTriangle" 
+              iconPosition="left"
+              className="w-full border-error text-error hover:bg-error/10"
+              onClick={onEmergencyMode}
+            >
+              Emergency Mode
+            </Button>
+          </div>
         </div>
       </div>
     </div>

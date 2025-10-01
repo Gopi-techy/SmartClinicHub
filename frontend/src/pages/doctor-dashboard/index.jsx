@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { useAuth } from '../../contexts/AuthContext';
 import appointmentService from '../../services/appointmentService';
+import prescriptionService from '../../services/prescriptionService';
 import RoleBasedHeader from '../../components/ui/RoleBasedHeader';
 import ProviderSidebar from '../../components/ui/ProviderSidebar';
 import TodaySchedule from './components/TodaySchedule';
@@ -13,6 +14,7 @@ import PatientNotesPanel from './components/PatientNotesPanel';
 import ProfileCompletionBanner from '../../components/ui/ProfileCompletionBanner';
 import VerificationStatusBanner from '../../components/ui/VerificationStatusBanner';
 import ToastManager from '../../components/ui/ToastManager';
+import PrescriptionForm from './components/PrescriptionForm';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 
@@ -24,6 +26,8 @@ const DoctorDashboard = () => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [isNotesPanelOpen, setIsNotesPanelOpen] = useState(false);
   const [appointmentStats, setAppointmentStats] = useState(null);
+  const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
+  const [prescriptionPatient, setPrescriptionPatient] = useState(null);
 
   useEffect(() => {
     // Check authentication
@@ -186,17 +190,15 @@ const DoctorDashboard = () => {
     navigate(`/appointment-booking?reschedule=${appointmentId}`);
   };
 
-  const handleCancelAppointment = async (appointmentId) => {
+  const handleCancelAppointment = async (appointmentId, reason = '') => {
     try {
-      const reason = prompt('Please enter cancellation reason:');
-      if (reason) {
-        await appointmentService.cancelAppointment(appointmentId, reason);
-        // Refresh the appointments list
-        fetchPatients();
-      }
+      await appointmentService.cancelAppointment(appointmentId, reason || 'Cancelled by doctor');
+      // Refresh the appointments list
+      await fetchPatients();
+      return { success: true };
     } catch (error) {
       console.error('Error cancelling appointment:', error);
-      // Could show toast notification here
+      throw error;
     }
   };
 
@@ -213,6 +215,24 @@ const DoctorDashboard = () => {
   const handleScheduleAppointment = () => {
     // Navigate to appointment scheduling
     navigate('/appointment-booking');
+  };
+  
+  const handleCreatePrescription = (patient) => {
+    setPrescriptionPatient(patient);
+    setShowPrescriptionForm(true);
+  };
+  
+  const handleSubmitPrescription = async (prescriptionData) => {
+    try {
+      const result = await prescriptionService.createPrescription(prescriptionData);
+      
+      // Show success toast or notification
+      alert('Prescription created successfully!');
+      return result;
+    } catch (error) {
+      console.error('Error creating prescription:', error);
+      throw error;
+    }
   };
 
 
@@ -383,7 +403,7 @@ const DoctorDashboard = () => {
                   onRescheduleAppointment={handleRescheduleAppointment}
                   onCancelAppointment={handleCancelAppointment}
                   onCompleteAppointment={handleCompleteAppointment}
-                  onCreatePrescription={(patient) => console.log('Create prescription for:', patient)}
+                  onCreatePrescription={handleCreatePrescription}
                 />
               )}
             </div>
@@ -392,9 +412,10 @@ const DoctorDashboard = () => {
             <div className="lg:col-span-1 space-y-6">
               {/* Quick Actions */}
               <QuickActions 
-                onScheduleAppointment={handleScheduleAppointment}
-                onCreatePrescription={(patient) => console.log('Create prescription for:', patient)}
-                onAccessEmergency={() => console.log('Access emergency')}
+                onAddAppointment={handleScheduleAppointment}
+                onUpdateAvailability={() => navigate('/appointment-booking?mode=availability')}
+                onCreatePrescription={handleCreatePrescription}
+                onEmergencyMode={() => navigate('/emergency-mode')}
               />
             </div>
           </div>
@@ -439,6 +460,18 @@ const DoctorDashboard = () => {
             setIsNotesPanelOpen(false);
             setSelectedPatient(null);
           }}
+        />
+      )}
+
+      {/* Prescription Form Modal */}
+      {showPrescriptionForm && prescriptionPatient && (
+        <PrescriptionForm
+          patient={prescriptionPatient}
+          onClose={() => {
+            setShowPrescriptionForm(false);
+            setPrescriptionPatient(null);
+          }}
+          onSubmit={handleSubmitPrescription}
         />
       )}
 

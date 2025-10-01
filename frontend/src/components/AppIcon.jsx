@@ -7,7 +7,9 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     // Navigation
     Home: LucideIcons.Home,
     Dashboard: LucideIcons.LayoutDashboard,
+    LayoutDashboard: LucideIcons.LayoutDashboard,
     Calendar: LucideIcons.Calendar,
+    CalendarPlus: LucideIcons.CalendarPlus,
     Users: LucideIcons.Users,
     Settings: LucideIcons.Settings,
     User: LucideIcons.User,
@@ -22,10 +24,13 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     AlertTriangle: LucideIcons.AlertTriangle,
     AlertCircle: LucideIcons.AlertCircle,
     CheckCircle: LucideIcons.CheckCircle,
+    CheckCircle2: LucideIcons.CheckCircle2,
     XCircle: LucideIcons.XCircle,
+    Hospital: LucideIcons.Hospital,
     
     // Communication
     MessageCircle: LucideIcons.MessageCircle,
+    MessageSquare: LucideIcons.MessageSquare,
     Mail: LucideIcons.Mail,
     Phone: LucideIcons.Phone,
     Bell: LucideIcons.Bell,
@@ -35,6 +40,7 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     Minus: LucideIcons.Minus,
     Edit: LucideIcons.Edit,
     Trash: LucideIcons.Trash,
+    Trash2: LucideIcons.Trash2,
     Search: LucideIcons.Search,
     Filter: LucideIcons.Filter,
     Download: LucideIcons.Download,
@@ -52,11 +58,13 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     ArrowRight: LucideIcons.ArrowRight,
     ArrowUp: LucideIcons.ArrowUp,
     ArrowDown: LucideIcons.ArrowDown,
+    RefreshCw: LucideIcons.RefreshCw,
     
     // Status
     Check: LucideIcons.Check,
     X: LucideIcons.X,
     Clock: LucideIcons.Clock,
+    Timer: LucideIcons.Timer,
     Star: LucideIcons.Star,
     
     // UI Elements
@@ -64,6 +72,7 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     MoreHorizontal: LucideIcons.MoreHorizontal,
     MoreVertical: LucideIcons.MoreVertical,
     Grid: LucideIcons.Grid,
+    Grid3X3: LucideIcons.Grid3x3,
     List: LucideIcons.List,
     Maximize: LucideIcons.Maximize,
     Minimize: LucideIcons.Minimize,
@@ -90,6 +99,7 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     Moon: LucideIcons.Moon,
     Sunrise: LucideIcons.Sunrise,
     Sunset: LucideIcons.Sunset,
+    Loader2: LucideIcons.Loader2,
     
     // Location
     MapPin: LucideIcons.MapPin,
@@ -114,6 +124,7 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     Zap: LucideIcons.Zap,
     Wifi: LucideIcons.Wifi,
     WifiOff: LucideIcons.WifiOff,
+    Wrench: LucideIcons.Wrench,
     
     // Business
     DollarSign: LucideIcons.DollarSign,
@@ -133,6 +144,12 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     PhoneCall: LucideIcons.PhoneCall,
     Ambulance: LucideIcons.Ambulance,
     FirstAid: LucideIcons.FirstAid,
+    
+    // Additional icons
+    Info: LucideIcons.Info,
+    Hash: LucideIcons.Hash,
+    UserX: LucideIcons.UserX,
+    UserCheck: LucideIcons.UserCheck,
     
     // Default fallback
     HelpCircle: LucideIcons.HelpCircle
