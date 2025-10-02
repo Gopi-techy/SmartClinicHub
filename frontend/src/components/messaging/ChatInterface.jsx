@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, Smile, Phone, Video, MoreVertical, ArrowLeft } from 'lucide-react';
+import { Send, Paperclip, Smile, Phone, Video, MoreVertical, ArrowLeft, MessageCircle, User } from 'lucide-react';
 
 const ChatInterface = ({ 
   conversation, 
@@ -29,9 +29,28 @@ const ChatInterface = ({
 
   const handleSendMessage = () => {
     if (message.trim() && conversation) {
+      const trimmedContent = message.trim();
+      
+      // Validate content length
+      if (trimmedContent.length === 0) {
+        console.error('Message content cannot be empty');
+        return;
+      }
+      
+      if (trimmedContent.length > 2000) {
+        console.error('Message content cannot exceed 2000 characters');
+        return;
+      }
+
+      // Validate receiverId
+      if (!conversation.participant._id) {
+        console.error('Invalid receiver ID');
+        return;
+      }
+
       onSendMessage({
         receiverId: conversation.participant._id,
-        content: message.trim(),
+        content: trimmedContent,
         messageType: 'text'
       });
       setMessage('');
@@ -150,11 +169,17 @@ const ChatInterface = ({
           </button>
           <div className="flex items-center space-x-3">
             <div className="relative">
-              <img
-                src={conversation.participant.profilePicture || '/assets/images/no_image.png'}
-                alt={`${conversation.participant.firstName} ${conversation.participant.lastName}`}
-                className="h-10 w-10 rounded-full object-cover"
-              />
+              {conversation.participant.profilePicture ? (
+                <img
+                  src={conversation.participant.profilePicture}
+                  alt={`${conversation.participant.firstName} ${conversation.participant.lastName}`}
+                  className="h-10 w-10 rounded-full object-cover"
+                />
+              ) : (
+                <div className="h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center">
+                  <User className="h-5 w-5 text-gray-500" />
+                </div>
+              )}
               {onlineStatus && (
                 <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 border-2 border-white rounded-full"></div>
               )}
@@ -189,7 +214,11 @@ const ChatInterface = ({
         {isNewConversation ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center text-gray-500">
-              <div className="text-4xl mb-4">�</div>
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                  <MessageCircle className="w-8 h-8 text-blue-500" />
+                </div>
+              </div>
               <h3 className="text-lg font-medium mb-2">Start a conversation</h3>
               <p className="text-sm">Send your first message to Dr. {conversation.participant.firstName}</p>
               <button 
@@ -199,8 +228,9 @@ const ChatInterface = ({
                   // Focus the message input
                   document.querySelector('textarea').focus();
                 }}
-                className="mt-4 px-4 py-2 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 transition-colors"
+                className="mt-4 px-4 py-2 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 transition-colors flex items-center gap-2 mx-auto"
               >
+                <MessageCircle className="w-4 h-4" />
                 Use a greeting template
               </button>
             </div>
@@ -217,7 +247,12 @@ const ChatInterface = ({
 
               {/* Messages for this date */}
               {dayMessages.map((msg, index) => {
-                const isCurrentUser = msg.sender._id === currentUser.userId;
+                // More robust user ID comparison - check multiple possible ID fields
+                const currentUserId = currentUser.userId || currentUser.id || currentUser._id;
+                const isCurrentUser = msg.sender._id === currentUserId || 
+                                    msg.sender.id === currentUserId ||
+                                    (currentUser.email && msg.sender.email === currentUser.email);
+                
                 const showAvatar = !isCurrentUser && (
                   index === 0 || 
                   dayMessages[index - 1].sender._id !== msg.sender._id
@@ -230,11 +265,17 @@ const ChatInterface = ({
                   >
                     <div className={`flex ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'} items-end space-x-2 max-w-xs lg:max-w-md`}>
                       {showAvatar && !isCurrentUser && (
-                        <img
-                          src={msg.sender.profilePicture || '/assets/images/no_image.png'}
-                          alt={msg.sender.firstName}
-                          className="h-6 w-6 rounded-full object-cover"
-                        />
+                        msg.sender.profilePicture ? (
+                          <img
+                            src={msg.sender.profilePicture}
+                            alt={msg.sender.firstName}
+                            className="h-6 w-6 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-6 w-6 bg-gray-100 rounded-full flex items-center justify-center">
+                            <User className="h-3 w-3 text-gray-500" />
+                          </div>
+                        )
                       )}
                       {!showAvatar && !isCurrentUser && <div className="w-6" />}
 

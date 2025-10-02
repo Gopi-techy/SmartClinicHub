@@ -92,7 +92,8 @@ const MessagingPage = () => {
         setMessages(prev => [...prev, message]);
         
         // Mark as read if not sent by current user
-        if (message.sender._id !== user.userId) {
+        const currentUserId = user.userId || user.id;
+        if (message.sender._id !== currentUserId) {
           messagingService.markMessagesAsRead(message.sender._id);
         }
       }
@@ -106,10 +107,11 @@ const MessagingPage = () => {
         );
 
         if (existingIndex >= 0) {
+          // Update the existing conversation
           updatedConversations[existingIndex] = {
             ...updatedConversations[existingIndex],
             lastMessage: message,
-            unreadCount: message.sender._id !== user.userId ? 
+            unreadCount: message.sender._id !== (user.userId || user.id) ? 
               (updatedConversations[existingIndex].unreadCount || 0) + 1 : 0
           };
           // Move to top
@@ -131,9 +133,10 @@ const MessagingPage = () => {
 
     const handleMessagesRead = ({ readBy, count }) => {
       // Update message read status
+      const currentUserId = user.userId || user.id;
       setMessages(prev => 
         prev.map(msg => 
-          msg.sender._id === user.userId && msg.receiver._id === readBy
+          msg.sender._id === currentUserId && msg.receiver._id === readBy
             ? { ...msg, isRead: true, readAt: new Date() }
             : msg
         )
@@ -206,7 +209,7 @@ const MessagingPage = () => {
 
     // Join conversation room for real-time updates
     const conversationId = messagingService.generateConversationId(
-      user.userId, 
+      user.userId || user.id, 
       selectedConversation.participant._id
     );
     messagingService.joinConversation(conversationId);
@@ -218,16 +221,131 @@ const MessagingPage = () => {
 
   // Handle sending a message
   const handleSendMessage = async (messageData) => {
-    const result = await messagingService.sendMessage(
-      messageData.receiverId,
-      messageData.content,
-      messageData.messageType,
-      messageData.replyToId
-    );
+    console.log('🔄 Attempting to send message:', { messageData, user, selectedConversation });
+    
+    if (!selectedConversation) {
+      console.error('No conversation selected');
+      return;
+    }
 
-    if (!result.success) {
-      console.error('Failed to send message:', result.message);
-      // You might want to show an error notification here
+    // Validate user data
+    if (!user || (!user.userId && !user.id)) {
+      console.error('User or userId/id not available:', user);
+      return;
+    }
+
+    // Use the correct user ID field
+    const currentUserId = user.userId || user.id;
+
+    // Validate message data
+    if (!messageData.receiverId) {
+      console.error('No receiver ID provided');
+      return;
+    }
+
+    // Validate receiverId format (should be 24-character MongoDB ObjectId)
+    if (typeof messageData.receiverId !== 'string' || messageData.receiverId.length !== 24) {
+      console.error('Invalid receiver ID format:', messageData.receiverId);
+      return;
+    }
+
+    if (!messageData.content || messageData.content.trim().length === 0) {
+      console.error('Message content is empty');
+      return;
+    }
+
+    if (messageData.content.length > 2000) {
+      console.error('Message content too long');
+      return;
+    }
+
+    console.log('✅ Message validation passed, creating temp message...');
+
+    // Create a temporary message to show immediately in UI
+    const tempMessage = {
+      _id: `temp_${Date.now()}`,
+      content: messageData.content,
+      messageType: messageData.messageType || 'text',
+      sender: {
+        _id: currentUserId,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profilePicture: user.profilePicture
+      },
+      receiver: {
+        _id: selectedConversation.participant._id,
+        firstName: selectedConversation.participant.firstName,
+        lastName: selectedConversation.participant.lastName
+      },
+      createdAt: new Date().toISOString(),
+      isDelivered: false,
+      isRead: false
+    };
+
+    // Add message to UI immediately
+    setMessages(prev => [...prev, tempMessage]);
+
+    try {
+      // Send the actual message
+      const result = await messagingService.sendMessage(
+        messageData.receiverId,
+        messageData.content,
+        messageData.messageType || 'text',
+        messageData.replyToId
+      );
+
+      if (result.success) {
+        // Replace temp message with real message
+        setMessages(prev => prev.map(msg => 
+          msg._id === tempMessage._id ? result.data : msg
+        ));
+        
+        // Update conversations list
+        setConversations(prev => {
+          const updatedConversations = [...prev];
+          const existingIndex = updatedConversations.findIndex(
+            conv => conv.participant._id === selectedConversation.participant._id
+          );
+
+          const newConversationData = {
+            participant: selectedConversation.participant,
+            lastMessage: result.data,
+            unreadCount: 0
+          };
+
+          if (existingIndex >= 0) {
+            updatedConversations[existingIndex] = newConversationData;
+            // Move to top
+            const conversation = updatedConversations.splice(existingIndex, 1)[0];
+            updatedConversations.unshift(conversation);
+          } else {
+            // Add new conversation to the top
+            updatedConversations.unshift(newConversationData);
+          }
+
+          return updatedConversations;
+        });
+      } else {
+        // Remove temp message on failure
+        setMessages(prev => prev.filter(msg => msg._id !== tempMessage._id));
+        console.error('Failed to send message:', result.message);
+        console.error('Detailed send error:', {
+          result,
+          messageData,
+          selectedConversation: selectedConversation?.participant,
+          user: {
+            id: user?.id,
+            userId: user?.userId,
+            email: user?.email
+          }
+        });
+        // TODO: Show user-friendly error notification
+      }
+    } catch (error) {
+      // Remove temp message on error
+      setMessages(prev => prev.filter(msg => msg._id !== tempMessage._id));
+      console.error('Error sending message:', error);
+      // TODO: Show user-friendly error notification
     }
   };
 
@@ -250,7 +368,7 @@ const MessagingPage = () => {
   const handleTyping = (isTyping) => {
     if (selectedConversation) {
       const conversationId = messagingService.generateConversationId(
-        user.userId,
+        user.userId || user.id,
         selectedConversation.participant._id
       );
       messagingService.emitTyping(conversationId, isTyping);
@@ -312,7 +430,7 @@ const MessagingPage = () => {
 
         {/* Main Content */}
         <div className={`pt-16 ${isPatient ? 'pb-20 md:pb-8 md:ml-64' : 'md:ml-80'}`}>
-          <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)]">
+          <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)] overflow-hidden">
             {/* Desktop Layout */}
             <div className="hidden md:flex h-full">
               {/* Conversations Sidebar */}

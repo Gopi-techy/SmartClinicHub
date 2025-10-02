@@ -39,7 +39,7 @@ const sendMessage = async (req, res) => {
     }
 
     const { receiverId, content, messageType = 'text', replyToId, metadata } = req.body;
-    const senderId = req.user.userId;
+    const senderId = req.user._id;
 
     // Check if receiver exists and is not the same as sender
     if (senderId === receiverId) {
@@ -147,7 +147,7 @@ const sendFileMessage = async (req, res) => {
     }
 
     const { receiverId, messageType = 'file', replyToId } = req.body;
-    const senderId = req.user.userId;
+    const senderId = req.user._id;
 
     // Validate file type and size
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'text/plain'];
@@ -245,7 +245,7 @@ const sendFileMessage = async (req, res) => {
 // Get all conversations for the authenticated user
 const getConversations = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     
     const conversations = await Message.getUserConversations(userId);
 
@@ -286,7 +286,7 @@ const getConversation = async (req, res) => {
 
     const { userId: otherUserId } = req.params;
     const { page = 1, limit = 50 } = req.query;
-    const currentUserId = req.user.userId;
+    const currentUserId = req.user._id;
 
     const messages = await Message.getConversation(
       currentUserId,
@@ -332,7 +332,7 @@ const markMessagesAsRead = async (req, res) => {
     }
 
     const { userId: senderId } = req.params;
-    const receiverId = req.user.userId;
+    const receiverId = req.user._id;
 
     const result = await Message.markAsRead(senderId, receiverId);
 
@@ -365,7 +365,7 @@ const markMessagesAsRead = async (req, res) => {
 // Get unread message count
 const getUnreadCount = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const unreadCount = await Message.getUnreadCount(userId);
 
     res.json({
@@ -395,7 +395,7 @@ const deleteMessage = async (req, res) => {
     }
 
     const { messageId } = req.params;
-    const userId = req.user.userId;
+    const userId = req.user._id;
 
     const message = await Message.findById(messageId);
     if (!message) {
@@ -455,7 +455,7 @@ const searchConversations = async (req, res) => {
     }
 
     const { q } = req.query;
-    const userId = req.user.userId;
+    const userId = req.user._id;
 
     const messages = await Message.find({
       $or: [
@@ -538,7 +538,7 @@ const createConversation = async (req, res) => {
     }
 
     const { receiverId } = req.body;
-    const senderId = req.user.userId;
+    const senderId = req.user._id;
 
     // Check if receiver exists and is not the same as sender
     if (senderId === receiverId) {

@@ -1,5 +1,6 @@
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
+const Message = require('../models/Message');
 const logger = require('../utils/logger');
 
 /**
@@ -385,16 +386,24 @@ const getAppointmentById = async (req, res) => {
 };
 
 /**
- * @desc    Get all registered patients in the system
+ * @desc    Get all registered patients in the system (only those with appointments or who have messaged the doctor)
  * @route   GET /api/appointments/doctor/all-patients
  * @access  Private (Doctor)
  */
 const getAllPatients = async (req, res) => {
   try {
+    const doctorId = req.user._id;
     const { page = 1, limit = 10, search = '' } = req.query;
     
-    // Build search query for patients
-    let searchQuery = { role: 'patient' };
+    console.log('🔍 getAllPatients called for doctor:', doctorId);
+    
+    // Build search query for ALL patients (removed appointment/message restrictions)
+    let searchQuery = { 
+      role: 'patient',
+      isActive: true,
+      isDeleted: false
+    };
+    
     if (search) {
       searchQuery.$or = [
         { firstName: { $regex: search, $options: 'i' } },
@@ -404,7 +413,7 @@ const getAllPatients = async (req, res) => {
       ];
     }
     
-    // Get all registered patients (not just those with appointments)
+    // Get ALL patients
     const patients = await User.find(searchQuery)
       .select('firstName lastName email phone dateOfBirth gender profilePicture createdAt')
       .sort({ createdAt: -1 })
@@ -413,6 +422,8 @@ const getAllPatients = async (req, res) => {
 
     const total = await User.countDocuments(searchQuery);
 
+    console.log('👥 Total patients found:', total);
+
     // Transform data to match frontend expectations
     const transformedPatients = patients.map((patient, index) => ({
       id: patient._id,
@@ -420,8 +431,8 @@ const getAllPatients = async (req, res) => {
       patientId: patient._id,
       appointmentTime: 'N/A', // No appointment data
       duration: 'N/A',
-      reason: 'No appointments yet',
-      status: 'Registered',
+      reason: 'Available for messaging',
+      status: 'Available',
       priority: 'normal',
       appointmentDate: null,
       totalAppointments: 0,

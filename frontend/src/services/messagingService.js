@@ -139,18 +139,69 @@ class MessagingService {
   // Send a text message
   async sendMessage(receiverId, content, messageType = 'text', replyToId = null) {
     try {
+      // Validate inputs
+      if (!receiverId) {
+        return { success: false, message: 'Receiver ID is required' };
+      }
+
+      if (!content || content.trim().length === 0) {
+        return { success: false, message: 'Message content cannot be empty' };
+      }
+
+      if (content.length > 2000) {
+        return { success: false, message: 'Message content cannot exceed 2000 characters' };
+      }
+
+      const validMessageTypes = ['text', 'image', 'file', 'appointment_request', 'prescription'];
+      if (!validMessageTypes.includes(messageType)) {
+        return { success: false, message: 'Invalid message type' };
+      }
+
+      console.log('📤 Sending message with data:', {
+        receiverId,
+        content,
+        messageType,
+        replyToId,
+        contentLength: content?.length,
+        receiverIdType: typeof receiverId
+      });
+
+      // Prepare request body, excluding null values
+      const requestBody = {
+        receiverId,
+        content,
+        messageType
+      };
+
+      // Only include replyToId if it's not null/undefined
+      if (replyToId) {
+        requestBody.replyToId = replyToId;
+      }
+
       const response = await fetch(`${this.apiUrl}/api/messaging/send`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
-        body: JSON.stringify({
-          receiverId,
-          content,
-          messageType,
-          replyToId
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('Send message error:', data);
+        console.error('Detailed error info:', {
+          status: response.status,
+          statusText: response.statusText,
+          errors: data.errors,
+          message: data.message,
+          details: data.details
+        });
+        return { 
+          success: false, 
+          message: data.message || data.error || 'Failed to send message',
+          details: data.details || data.errors || null
+        };
+      }
+      
       return data;
     } catch (error) {
       console.error('Error sending message:', error);
@@ -292,6 +343,36 @@ class MessagingService {
     } catch (error) {
       console.error('Error fetching doctors:', error);
       return { success: false, message: 'Failed to fetch doctors' };
+    }
+  }
+
+  // Get all patients (for doctors to message)
+  async getAllPatients(page = 1, limit = 50) {
+    try {
+      const response = await fetch(
+        `${this.apiUrl}/api/appointments/doctor/all-patients?page=${page}&limit=${limit}`, 
+        {
+          method: 'GET',
+          headers: this.getAuthHeaders()
+        }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        return { 
+          success: true, 
+          patients: data.patients,
+          pagination: {
+            page: data.page,
+            pages: data.pages,
+            total: data.total
+          }
+        };
+      }
+      return { success: false, message: 'Failed to fetch patients' };
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+      return { success: false, message: 'Failed to fetch patients' };
     }
   }
 

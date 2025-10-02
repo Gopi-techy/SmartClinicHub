@@ -31,6 +31,7 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     // Communication
     MessageCircle: LucideIcons.MessageCircle,
     MessageSquare: LucideIcons.MessageSquare,
+    MessageSquarePlus: LucideIcons.MessageSquarePlus,
     Mail: LucideIcons.Mail,
     Phone: LucideIcons.Phone,
     Bell: LucideIcons.Bell,

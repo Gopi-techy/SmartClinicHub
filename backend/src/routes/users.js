@@ -3,6 +3,8 @@ const multer = require('multer');
 const { BlobServiceClient } = require('@azure/storage-blob');
 
 const User = require('../models/User');
+const Appointment = require('../models/Appointment');
+const Message = require('../models/Message');
 const { 
   getUsers, 
   getUser, 
@@ -451,6 +453,116 @@ router.get('/doctors',
         }
       }
     });
+  })
+);
+
+/**
+ * @route   GET /api/users/patients
+ * @desc    Get list of patients doctor can message (Doctor only)
+ * @access  Private (Doctor)
+ */
+router.get('/patients',
+  authenticate,
+  authorize('doctor'),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    console.log('🔍 Patients endpoint called for user:', req.user._id);
+    const doctorId = req.user._id;
+    const { 
+      query, 
+      page = 1, 
+      limit = 50,
+      sortBy = 'name',
+      sortOrder = 'asc' 
+    } = req.query;
+
+    try {
+      // Find patients who have appointments with this doctor
+      const appointmentPatients = await Appointment.find({
+        doctorId: doctorId,
+        status: { $in: ['scheduled', 'completed', 'ongoing'] }
+      }).distinct('patientId');
+
+      // Find patients who have sent messages to this doctor
+      const messagePatients = await Message.find({
+        receiverId: doctorId,
+        senderId: { $ne: doctorId }
+      }).distinct('senderId');
+
+      // Combine both lists and remove duplicates
+      const allowedPatientIds = [...new Set([...appointmentPatients, ...messagePatients])];
+
+      if (allowedPatientIds.length === 0) {
+        return res.json({
+          success: true,
+          data: {
+            patients: [],
+            pagination: {
+              currentPage: parseInt(page),
+              totalPages: 0,
+              totalPatients: 0,
+              hasNext: false,
+              hasPrev: false
+            }
+          }
+        });
+      }
+
+      // Build filter object for patients
+      const filters = {
+        _id: { $in: allowedPatientIds },
+        role: 'patient',
+        isActive: true,
+        isDeleted: false
+      };
+
+      if (query) {
+        filters.$or = [
+          { firstName: { $regex: query, $options: 'i' } },
+          { lastName: { $regex: query, $options: 'i' } },
+          { email: { $regex: query, $options: 'i' } }
+        ];
+      }
+
+      // Build sort object
+      const sortOptions = {};
+      if (sortBy === 'name') {
+        sortOptions.firstName = sortOrder === 'desc' ? -1 : 1;
+      } else {
+        sortOptions.createdAt = sortOrder === 'desc' ? -1 : 1;
+      }
+
+      // Execute query with pagination
+      const patients = await User.find(filters)
+        .select('firstName lastName email phone address profilePicture')
+        .sort(sortOptions)
+        .limit(limit * 1)
+        .skip((page - 1) * limit)
+        .lean();
+
+      const total = await User.countDocuments(filters);
+
+      res.json({
+        success: true,
+        data: {
+          patients,
+          pagination: {
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(total / limit),
+            totalPatients: total,
+            hasNext: page < Math.ceil(total / limit),
+            hasPrev: page > 1
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Error fetching doctor patients:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch patients'
+      });
+    }
   })
 );
 
