@@ -358,18 +358,24 @@ class MessagingService {
       );
 
       const data = await response.json();
+      console.log('📋 getAllPatients response:', data);
+      
       if (data.success) {
+        // Extract patients from the response - could be data.patients or data.data.patients
+        const patients = data.patients || data.data?.patients || [];
+        console.log('📋 Extracted patients:', patients);
+        
         return { 
           success: true, 
-          patients: data.patients,
+          patients: patients,
           pagination: {
-            page: data.page,
-            pages: data.pages,
-            total: data.total
+            page: data.page || data.data?.page,
+            pages: data.pages || data.data?.pages,
+            total: data.total || data.data?.total
           }
         };
       }
-      return { success: false, message: 'Failed to fetch patients' };
+      return { success: false, message: data.message || 'Failed to fetch patients' };
     } catch (error) {
       console.error('Error fetching patients:', error);
       return { success: false, message: 'Failed to fetch patients' };

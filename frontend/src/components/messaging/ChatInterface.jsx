@@ -157,9 +157,9 @@ const ChatInterface = ({
   const isNewConversation = messages.length === 0 || conversation.participant.isNew;
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex-1 flex flex-col bg-white h-full">
       {/* Chat Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+      <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <button
             onClick={onBack}
@@ -316,13 +316,56 @@ const ChatInterface = ({
                         }`}>
                           <span className="text-xs">{formatTime(msg.createdAt)}</span>
                           {isCurrentUser && (
-                            <div className="flex space-x-1">
-                              <div className={`w-3 h-3 ${msg.isDelivered ? 'text-blue-100' : 'text-blue-300'}`}>
-                                ✓
+                            <div className="flex items-center ml-1">
+                              {/* WhatsApp-style double tick */}
+                              <div className="relative flex items-center">
+                                {msg.isRead ? (
+                                  // Double blue ticks for read messages
+                                  <div className="flex items-center">
+                                    <svg 
+                                      className="w-3.5 h-3.5 text-blue-400" 
+                                      fill="currentColor" 
+                                      viewBox="0 0 16 16"
+                                    >
+                                      <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
+                                    </svg>
+                                    <svg 
+                                      className="w-3.5 h-3.5 text-blue-400 -ml-1.5" 
+                                      fill="currentColor" 
+                                      viewBox="0 0 16 16"
+                                    >
+                                      <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
+                                    </svg>
+                                  </div>
+                                ) : msg.isDelivered ? (
+                                  // Double gray ticks for delivered messages
+                                  <div className="flex items-center">
+                                    <svg 
+                                      className="w-3.5 h-3.5 text-white/60" 
+                                      fill="currentColor" 
+                                      viewBox="0 0 16 16"
+                                    >
+                                      <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
+                                    </svg>
+                                    <svg 
+                                      className="w-3.5 h-3.5 text-white/60 -ml-1.5" 
+                                      fill="currentColor" 
+                                      viewBox="0 0 16 16"
+                                    >
+                                      <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
+                                    </svg>
+                                  </div>
+                                ) : (
+                                  // Single gray tick for sent messages
+                                  <svg 
+                                    className="w-3.5 h-3.5 text-white/40" 
+                                    fill="currentColor" 
+                                    viewBox="0 0 16 16"
+                                  >
+                                    <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
+                                  </svg>
+                                )}
                               </div>
-                              {msg.isRead && (
-                                <div className="w-3 h-3 text-blue-100">✓</div>
-                              )}
                             </div>
                           )}
                         </div>
@@ -338,7 +381,7 @@ const ChatInterface = ({
       </div>
 
       {/* Message Input */}
-      <div className="bg-white border-t border-gray-200 p-4">
+      <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4">
         <div className="flex items-end space-x-3">
           <input
             type="file"

@@ -426,7 +426,13 @@ const getAllPatients = async (req, res) => {
 
     // Transform data to match frontend expectations
     const transformedPatients = patients.map((patient, index) => ({
+      _id: patient._id,
       id: patient._id,
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      email: patient.email,
+      phone: patient.phone,
+      profilePicture: patient.profilePicture,
       name: `${patient.firstName} ${patient.lastName}`,
       patientId: patient._id,
       appointmentTime: 'N/A', // No appointment data
