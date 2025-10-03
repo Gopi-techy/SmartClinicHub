@@ -16,6 +16,7 @@ import SearchAndFilters from './components/SearchAndFilters';
 import RecordPreviewModal from './components/RecordPreviewModal';
 import BulkActions from './components/BulkActions';
 import MedicalChatContainer from '../../components/ui/MedicalChatContainer';
+import UploadModal from './components/UploadModal';
 
 const HealthRecordsManagement = () => {
   const navigate = useNavigate();
@@ -31,6 +32,7 @@ const HealthRecordsManagement = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [previewRecord, setPreviewRecord] = useState(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   // Health records state for AWS S3 integration
   const [healthRecords, setHealthRecords] = useState([]);
@@ -67,7 +69,7 @@ const HealthRecordsManagement = () => {
       // Get user info from AuthContext
       const userId = user.id || user._id;
       const userRole = user.role;
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
       
       if (!userId || !token) {
         throw new Error('Missing user data or authentication token');
@@ -97,33 +99,7 @@ const HealthRecordsManagement = () => {
         setHealthRecords(result.records || []);
         setTotalRecords(result.total || 0);
       } else {
-        // Fallback to mock data if service fails
-        const mockRecords = [
-          {
-            id: '1',
-            name: 'Blood Test Results.pdf',
-            type: 'pdf',
-            size: 256000,
-            category: 'Lab Results',
-            uploadDate: new Date().toISOString(),
-            description: 'Complete blood count results',
-            doctorName: 'Smith'
-          },
-          {
-            id: '2',
-            name: 'X-Ray Chest.jpg',
-            type: 'image',
-            size: 512000,
-            category: 'Imaging',
-            uploadDate: new Date(Date.now() - 86400000).toISOString(),
-            description: 'Chest X-ray scan',
-            doctorName: 'Johnson'
-          }
-        ];
-
-        setHealthRecords(mockRecords);
-        setTotalRecords(mockRecords.length);
-        console.warn('Using mock data as fallback:', result.error);
+        throw new Error(result.error || 'Failed to fetch health records');
       }
     } catch (error) {
       console.error('Error fetching health records:', error);
@@ -176,15 +152,20 @@ const HealthRecordsManagement = () => {
       setIsUploading(true);
       setUploadProgress(0);
       
-      const userId = localStorage.getItem('userId');
-      const userRole = localStorage.getItem('userRole');
+      // Get user data from AuthContext instead of localStorage
+      if (!isAuthenticated || !user) {
+        throw new Error('User not authenticated');
+      }
+      
+      const userId = user.id || user._id;
+      const currentUserRole = user.role || userRole;
       
       if (!userId) {
-        throw new Error('User not authenticated');
+        throw new Error('User ID not found');
       }
 
       // For doctors, they might be adding records for a specific patient
-      const targetPatientId = userRole === 'doctor' ? 
+      const targetPatientId = currentUserRole === 'doctor' ? 
         new URLSearchParams(window.location.search).get('patientId') || userId : 
         userId;
 
@@ -194,17 +175,19 @@ const HealthRecordsManagement = () => {
         
         // Add file and metadata
         formData.append('file', file);
-        formData.append('userId', targetPatientId);
-        formData.append('uploadedBy', userId);
-        formData.append('uploaderRole', userRole);
-        formData.append('category', detectFileCategory(file.name, file.type));
-        formData.append('originalName', file.name);
+        // Don't send userId - let backend use authenticated user's ID
+        formData.append('category', file.category || detectFileCategory(file.name, file.type));
+        
+        // Add description if provided
+        if (file.description) {
+          formData.append('description', file.description);
+        }
 
         // Upload to AWS S3 via backend API
-        const response = await fetch('/api/health-records/upload', {
+        const response = await fetch(`${import.meta.env.VITE_API}/health-records/upload`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
           },
           body: formData,
           onUploadProgress: (progressEvent) => {
@@ -214,7 +197,21 @@ const HealthRecordsManagement = () => {
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to upload ${file.name}`);
+          let errorMessage = `Failed to upload ${file.name}`;
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.details || errorMessage;
+          } catch (jsonError) {
+            // If JSON parsing fails, use status text
+            errorMessage = `${errorMessage} (${response.status}: ${response.statusText})`;
+          }
+          throw new Error(errorMessage);
+        }
+        
+        // Parse response
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.error || `Upload failed for ${file.name}`);
         }
 
         // Update progress for multiple files
@@ -266,26 +263,31 @@ const HealthRecordsManagement = () => {
 
   const handleDownload = async (record) => {
     try {
-      const response = await fetch(`/api/health-records/${record.id}/download`, {
+      const recordId = record._id || record.id;
+      const response = await fetch(`${import.meta.env.VITE_API}/health-records/${recordId}/download`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
       });
       
       if (!response.ok) {
-        throw new Error('Failed to download record');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to download record');
       }
       
-      // Create download link
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = record.name;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const result = await response.json();
+      
+      if (result.success && result.downloadUrl) {
+        // Create download link using signed URL
+        const a = document.createElement('a');
+        a.href = result.downloadUrl;
+        a.download = result.fileName || (record.s3Files?.[0]?.name || record.name || 'health-record');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        throw new Error('Invalid download response');
+      }
     } catch (error) {
       console.error('Download error:', error);
       setRecordsError(`Download failed: ${error.message}`);
@@ -305,10 +307,11 @@ const HealthRecordsManagement = () => {
     }
     
     try {
-      const response = await fetch(`/api/health-records/${record.id}`, {
+      const recordId = record._id || record.id;
+      const response = await fetch(`${import.meta.env.VITE_API}/health-records/${recordId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
       });
       
@@ -334,10 +337,10 @@ const HealthRecordsManagement = () => {
 
   const handleBulkDownload = async () => {
     try {
-      const response = await fetch('/api/health-records/bulk-download', {
+      const response = await fetch(`${import.meta.env.VITE_API}/health-records/bulk-download`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ recordIds: selectedRecords })
@@ -376,10 +379,10 @@ const HealthRecordsManagement = () => {
     }
     
     try {
-      const response = await fetch('/api/health-records/bulk-delete', {
+      const response = await fetch(`${import.meta.env.VITE_API}/health-records/bulk-delete`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ recordIds: selectedRecords })
@@ -464,7 +467,7 @@ const HealthRecordsManagement = () => {
                     variant="default"
                     iconName="Plus"
                     iconPosition="left"
-                    onClick={() => document.querySelector('input[type="file"]')?.click()}
+                    onClick={() => setIsUploadModalOpen(true)}
                     disabled={isUploading}
                   >
                     {userRole === 'doctor' ? 'Add Patient Record' : 'Add Record'}
@@ -496,14 +499,24 @@ const HealthRecordsManagement = () => {
             )}
           </div>
 
-          {/* Upload Zone - only show if user can add records */}
-          {canAddRecords() && (
-            <div className="mb-6">
-              <UploadZone
-                onFileUpload={handleFileUpload}
-                isUploading={isUploading}
-                uploadProgress={uploadProgress}
-              />
+          {/* Upload Status */}
+          {canAddRecords() && isUploading && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-blue-900">Uploading health records...</span>
+                    <span className="text-sm text-blue-700">{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-blue-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -587,7 +600,7 @@ const HealthRecordsManagement = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                           {filteredRecords.map((record) => (
                             <RecordCard
-                              key={record.id}
+                              key={record._id || record.id}
                               record={record}
                               onShare={handleShare}
                               onDownload={handleDownload}
@@ -629,7 +642,7 @@ const HealthRecordsManagement = () => {
                           variant="default"
                           iconName="Plus"
                           iconPosition="left"
-                          onClick={() => document.querySelector('input[type="file"]')?.click()}
+                          onClick={() => setIsUploadModalOpen(true)}
                         >
                           {userRole === 'doctor' ? 'Add Patient Record' : 'Add Your First Record'}
                         </Button>
@@ -642,6 +655,15 @@ const HealthRecordsManagement = () => {
           </div>
         </div>
       </main>
+
+      {/* Upload Modal */}
+      <UploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onUpload={handleFileUpload}
+        isUploading={isUploading}
+        uploadProgress={uploadProgress}
+      />
 
       {/* Preview Modal */}
       <RecordPreviewModal

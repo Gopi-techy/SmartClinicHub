@@ -6,6 +6,45 @@ import Button from '../../../components/ui/Button';
 const RecordCard = ({ record, onShare, onDownload, onDelete, onPreview }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // Helper to get the correct upload date
+  const getUploadDate = (record) => {
+    // Try s3Files first (if file was uploaded)
+    if (record.s3Files && record.s3Files.length > 0 && record.s3Files[0].uploadDate) {
+      return record.s3Files[0].uploadDate;
+    }
+    // Fall back to recordDate
+    if (record.recordDate) {
+      return record.recordDate;
+    }
+    // Fall back to createdAt
+    if (record.createdAt) {
+      return record.createdAt;
+    }
+    // Fall back to uploadDate (legacy)
+    if (record.uploadDate) {
+      return record.uploadDate;
+    }
+    // Default to current date if nothing found
+    return new Date();
+  };
+
+  // Helper to format date safely
+  const formatDate = (dateValue) => {
+    try {
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) {
+        return 'Recently uploaded';
+      }
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Recently uploaded';
+    }
+  };
+
   const getCategoryColor = (category) => {
     const colors = {
       'Lab Results': 'bg-blue-100 text-blue-800',
@@ -55,8 +94,8 @@ const RecordCard = ({ record, onShare, onDownload, onDelete, onPreview }) => {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 truncate text-base leading-tight">{record.name}</h3>
-            <p className="text-sm text-gray-500 mt-1">{formatFileSize(record.size)}</p>
+            <h3 className="font-semibold text-gray-900 truncate text-base leading-tight">{record.s3Files?.[0]?.name || record.name || 'Health Record'}</h3>
+            <p className="text-sm text-gray-500 mt-1">{formatFileSize(record.s3Files?.[0]?.size || record.size || 0)}</p>
           </div>
         </div>
         
@@ -146,8 +185,8 @@ const RecordCard = ({ record, onShare, onDownload, onDelete, onPreview }) => {
       {/* Enhanced Metadata Section */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getCategoryColor(record.category)}`}>
-            {record.category}
+          <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getCategoryColor(record.s3Files?.[0]?.category || record.category || 'Other')}`}>
+            {record.s3Files?.[0]?.category || record.category || 'Other'}
           </span>
           <div className="flex items-center space-x-2">
             {record.isShared && (
@@ -162,7 +201,7 @@ const RecordCard = ({ record, onShare, onDownload, onDelete, onPreview }) => {
         <div className="text-xs text-gray-500 space-y-1">
           <div className="flex items-center justify-between">
             <span>Uploaded:</span>
-            <span className="font-medium text-gray-600">{new Date(record.uploadDate).toLocaleDateString()}</span>
+            <span className="font-medium text-gray-600">{formatDate(getUploadDate(record))}</span>
           </div>
           {record.doctorName && (
             <div className="flex items-center justify-between">

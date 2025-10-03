@@ -1,7 +1,7 @@
 // AWS S3 Health Records Service
 // This service handles all health record operations with AWS S3 backend
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API || 'http://localhost:5000/api';
 
 class HealthRecordsService {
   constructor() {
@@ -10,7 +10,7 @@ class HealthRecordsService {
 
   // Get authorization headers
   getHeaders() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken');
     return {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
@@ -19,7 +19,7 @@ class HealthRecordsService {
 
   // Get file upload headers (without Content-Type for FormData)
   getUploadHeaders() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken');
     return {
       'Authorization': `Bearer ${token}`
     };
@@ -33,7 +33,7 @@ class HealthRecordsService {
    */
   async fetchRecords(userId, userRole, filters = {}) {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
       if (!token) {
         throw new Error('No authentication token found');
       }
@@ -134,7 +134,7 @@ class HealthRecordsService {
         xhr.open('POST', `${this.baseURL}/upload`);
         
         // Set authorization header
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('authToken');
         if (token) {
           xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         }

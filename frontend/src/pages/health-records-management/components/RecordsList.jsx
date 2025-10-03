@@ -3,6 +3,57 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 
 const RecordsList = ({ records, onShare, onDownload, onDelete, onPreview, selectedRecords, onSelectRecord }) => {
+  // Helper to get the correct upload date
+  const getUploadDate = (record) => {
+    // Try s3Files first (if file was uploaded)
+    if (record.s3Files && record.s3Files.length > 0 && record.s3Files[0].uploadDate) {
+      return record.s3Files[0].uploadDate;
+    }
+    // Fall back to recordDate
+    if (record.recordDate) {
+      return record.recordDate;
+    }
+    // Fall back to createdAt
+    if (record.createdAt) {
+      return record.createdAt;
+    }
+    // Fall back to uploadDate (legacy)
+    if (record.uploadDate) {
+      return record.uploadDate;
+    }
+    // Default to current date if nothing found
+    return new Date();
+  };
+
+  // Helper to format date safely
+  const formatDate = (dateValue) => {
+    try {
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) {
+        return 'Recently uploaded';
+      }
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Recently uploaded';
+    }
+  };
+
+  // Helper to format time safely
+  const formatTime = (dateValue) => {
+    try {
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) {
+        return '';
+      }
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (error) {
+      return '';
+    }
+  };
   const getCategoryColor = (category) => {
     const colors = {
       'Lab Results': 'text-blue-600',
@@ -42,9 +93,9 @@ const RecordsList = ({ records, onShare, onDownload, onDelete, onPreview, select
               className="rounded border-border"
               onChange={(e) => {
                 if (e.target.checked) {
-                  records.forEach(record => onSelectRecord(record.id, true));
+                  records.forEach(record => onSelectRecord(record._id || record.id, true));
                 } else {
-                  records.forEach(record => onSelectRecord(record.id, false));
+                  records.forEach(record => onSelectRecord(record._id || record.id, false));
                 }
               }}
             />
@@ -61,15 +112,15 @@ const RecordsList = ({ records, onShare, onDownload, onDelete, onPreview, select
       {/* Table Body */}
       <div className="divide-y divide-border">
         {records.map((record) => (
-          <div key={record.id} className="px-4 py-3 hover:bg-muted/50 transition-healthcare">
+          <div key={record._id || record.id} className="px-4 py-3 hover:bg-muted/50 transition-healthcare">
             <div className="grid grid-cols-12 gap-4 items-center">
               {/* Checkbox */}
               <div className="col-span-1">
                 <input
                   type="checkbox"
                   className="rounded border-border"
-                  checked={selectedRecords.includes(record.id)}
-                  onChange={(e) => onSelectRecord(record.id, e.target.checked)}
+                  checked={selectedRecords.includes(record._id || record.id)}
+                  onChange={(e) => onSelectRecord(record._id || record.id, e.target.checked)}
                 />
               </div>
 
@@ -80,7 +131,7 @@ const RecordsList = ({ records, onShare, onDownload, onDelete, onPreview, select
                     <Icon name={getFileIcon(record.type)} size={16} className="text-muted-foreground" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-foreground truncate">{record.name}</div>
+                    <div className="font-medium text-foreground truncate">{record.s3Files?.[0]?.name || record.name || 'Health Record'}</div>
                     {record.doctorName && (
                       <div className="text-xs text-muted-foreground">Shared with Dr. {record.doctorName}</div>
                     )}
@@ -90,25 +141,25 @@ const RecordsList = ({ records, onShare, onDownload, onDelete, onPreview, select
 
               {/* Category */}
               <div className="col-span-2">
-                <span className={`text-sm font-medium ${getCategoryColor(record.category)}`}>
-                  {record.category}
+                <span className={`text-sm font-medium ${getCategoryColor(record.s3Files?.[0]?.category || record.category || 'Other')}`}>
+                  {record.s3Files?.[0]?.category || record.category || 'Other'}
                 </span>
               </div>
 
               {/* Date */}
               <div className="col-span-2">
                 <div className="text-sm text-foreground">
-                  {new Date(record.uploadDate).toLocaleDateString()}
+                  {formatDate(getUploadDate(record))}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {new Date(record.uploadDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {formatTime(getUploadDate(record))}
                 </div>
               </div>
 
               {/* Size */}
               <div className="col-span-1">
                 <span className="text-sm text-muted-foreground">
-                  {formatFileSize(record.size)}
+                  {formatFileSize(record.s3Files?.[0]?.size || record.size || 0)}
                 </span>
               </div>
 

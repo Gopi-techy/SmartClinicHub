@@ -1,67 +1,110 @@
 const express = require('express');
 const router = express.Router();
-const { S3Service, upload } = require('../services/s3Service');
-const auth = require('../middleware/auth');
+const { S3Service, upload } = require('../services/s3ServiceSimple');
+const { authenticate } = require('../middleware/auth');
 const HealthRecord = require('../models/HealthRecord');
 
 // Upload health record
-router.post('/upload', auth, upload.single('file'), async (req, res) => {
+router.post('/upload', authenticate, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file provided' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'No file provided' 
+      });
     }
 
     const { description, category, doctorId } = req.body;
+    
+    // Use authenticated user's ID - this is already a valid ObjectId from JWT
     const userId = req.user.id;
+    
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'User ID not found in authentication token' 
+      });
+    }
+    
+    // Validate category
+    const validCategories = ['Lab Results', 'Prescriptions', 'Imaging', 'Insurance', 'Personal Notes', 'Other'];
+    const fileCategory = validCategories.includes(category) ? category : 'Other';
+
+    console.log(`Uploading file for user ${userId}, category: ${fileCategory}`);
 
     // Upload to S3
     const s3Result = await S3Service.uploadFile(req.file, userId, {
-      description,
-      category,
-      doctorId
+      description: description || '',
+      category: fileCategory,
+      doctorId: doctorId || null
     });
+
+    if (!s3Result || !s3Result.key || !s3Result.url) {
+      throw new Error('Failed to upload file to S3 - invalid response');
+    }
+
+    console.log(`S3 upload successful: ${s3Result.key}`);
 
     // Save record to database
     const healthRecord = new HealthRecord({
-      name: req.file.originalname,
-      type: req.file.mimetype,
-      size: req.file.size,
-      s3Key: s3Result.key,
-      s3Url: s3Result.url,
-      description,
-      category,
-      patientId: userId,
-      doctorId,
-      uploadDate: new Date()
+      patient: userId,                    // Use authenticated user's ObjectId
+      recordType: 'imaging',              // Required: Record type (files are usually imaging/documents)
+      recordDate: new Date(),
+      recordedBy: userId,                 // Who uploaded the file (authenticated user)
+      s3Files: [{                         // Store file info in s3Files array
+        name: req.file.originalname,
+        type: req.file.mimetype,
+        size: req.file.size,
+        s3Key: s3Result.key,
+        s3Url: s3Result.url,
+        description: description || '',
+        category: fileCategory,
+        uploadDate: new Date(),
+        uploadedBy: userId                // Use authenticated user's ObjectId
+      }],
+      notes: description || '',           // Store description in notes as well
+      status: 'active'
     });
 
-    await healthRecord.save();
+    const savedRecord = await healthRecord.save();
+    console.log(`Database save successful: ${savedRecord._id}`);
 
     res.status(201).json({
       success: true,
-      record: healthRecord,
+      record: savedRecord,
       message: 'Health record uploaded successfully'
     });
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({
+    
+    // Determine appropriate error status
+    let statusCode = 500;
+    if (error.name === 'ValidationError') {
+      statusCode = 400;
+    } else if (error.message.includes('authentication') || error.message.includes('unauthorized')) {
+      statusCode = 401;
+    }
+    
+    res.status(statusCode).json({
+      success: false,
       error: 'Failed to upload health record',
-      details: error.message
+      details: error.message,
+      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
     });
   }
 });
 
 // Get user's health records
-router.get('/my-records', auth, async (req, res) => {
+router.get('/my-records', authenticate, async (req, res) => {
   try {
     const userId = req.user.id;
     const { category, dateRange, sortBy } = req.query;
 
-    let query = { patientId: userId };
+    let query = { patient: userId, status: 'active' };
     
-    // Add category filter
+    // Add category filter - handle s3Files structure
     if (category && category !== 'all') {
-      query.category = category;
+      query['s3Files.category'] = category;
     }
 
     // Add date range filter
@@ -82,32 +125,91 @@ router.get('/my-records', auth, async (req, res) => {
       }
       
       if (startDate) {
-        query.uploadDate = { $gte: startDate };
+        query.recordDate = { $gte: startDate };
       }
     }
 
     // Set sort options
-    let sortOptions = { uploadDate: -1 }; // Default: newest first
-    if (sortBy === 'name-asc') sortOptions = { name: 1 };
-    if (sortBy === 'name-desc') sortOptions = { name: -1 };
-    if (sortBy === 'date-asc') sortOptions = { uploadDate: 1 };
+    let sortOptions = { recordDate: -1 }; // Default: newest first
+    if (sortBy === 'name-asc') sortOptions = { 's3Files.name': 1 };
+    if (sortBy === 'name-desc') sortOptions = { 's3Files.name': -1 };
+    if (sortBy === 'date-asc') sortOptions = { recordDate: 1 };
 
     const records = await HealthRecord.find(query)
       .sort(sortOptions)
-      .populate('doctorId', 'firstName lastName')
+      .populate('patient', 'firstName lastName')
+      .populate('recordedBy', 'firstName lastName')
       .lean();
+
+    // Remove duplicates based on s3Key and filter out malformed records
+    const uniqueRecords = [];
+    const seenKeys = new Set();
+    
+    for (const record of records) {
+      // Skip records without s3Files or with malformed s3Files
+      if (!record.s3Files || !Array.isArray(record.s3Files) || record.s3Files.length === 0) {
+        console.warn(`Skipping malformed record ${record._id}: no s3Files array`);
+        continue;
+      }
+      
+      // Check if first file has required fields
+      const firstFile = record.s3Files[0];
+      if (!firstFile || !firstFile.s3Key || !firstFile.name) {
+        console.warn(`Skipping malformed record ${record._id}: missing required s3File fields`);
+        continue;
+      }
+      
+      const s3Key = firstFile.s3Key;
+      if (!seenKeys.has(s3Key)) {
+        seenKeys.add(s3Key);
+        uniqueRecords.push(record);
+      }
+    }
 
     // Generate signed URLs for secure access
     const recordsWithUrls = await Promise.all(
-      records.map(async (record) => {
+      uniqueRecords.map(async (record) => {
         try {
-          const signedUrl = await S3Service.getSignedUrl(record.s3Key);
-          return {
-            ...record,
-            downloadUrl: signedUrl
-          };
+          // Handle the new s3Files array structure
+          if (record.s3Files && record.s3Files.length > 0) {
+            // Generate signed URLs for each file in the record
+            const filesWithUrls = await Promise.all(
+              record.s3Files.map(async (file) => {
+                try {
+                  // Check if s3Key exists before generating signed URL
+                  if (!file.s3Key) {
+                    console.warn(`Missing s3Key for file: ${file.name || 'unknown'}`);
+                    return file;
+                  }
+                  
+                  const signedUrl = await S3Service.getSignedUrl(file.s3Key);
+                  return {
+                    ...file,
+                    downloadUrl: signedUrl
+                  };
+                } catch (error) {
+                  console.error(`Error generating signed URL for ${file.s3Key}:`, error);
+                  return file;
+                }
+              })
+            );
+            
+            return {
+              ...record,
+              s3Files: filesWithUrls,
+              // For backward compatibility, if there's only one file, expose it at root level
+              ...(record.s3Files.length === 1 && {
+                downloadUrl: filesWithUrls[0].downloadUrl,
+                name: filesWithUrls[0].name,
+                type: filesWithUrls[0].type,
+                size: filesWithUrls[0].size
+              })
+            };
+          }
+          
+          return record;
         } catch (error) {
-          console.error(`Error generating signed URL for ${record.s3Key}:`, error);
+          console.error(`Error processing record ${record._id}:`, error);
           return record;
         }
       })
@@ -115,7 +217,8 @@ router.get('/my-records', auth, async (req, res) => {
 
     res.json({
       success: true,
-      records: recordsWithUrls
+      records: recordsWithUrls,
+      total: recordsWithUrls.length
     });
   } catch (error) {
     console.error('Get records error:', error);
@@ -127,7 +230,7 @@ router.get('/my-records', auth, async (req, res) => {
 });
 
 // Get all records (for doctors)
-router.get('/all-records', auth, async (req, res) => {
+router.get('/all-records', authenticate, async (req, res) => {
   try {
     // Check if user is a doctor
     if (req.user.role !== 'doctor') {
@@ -136,11 +239,11 @@ router.get('/all-records', auth, async (req, res) => {
 
     const { patientId, category, dateRange, sortBy } = req.query;
 
-    let query = {};
+    let query = { status: 'active' };
     
     // Add patient filter for specific patient
     if (patientId) {
-      query.patientId = patientId;
+      query.patient = patientId;
     }
 
     // Add category filter
@@ -178,8 +281,8 @@ router.get('/all-records', auth, async (req, res) => {
 
     const records = await HealthRecord.find(query)
       .sort(sortOptions)
-      .populate('patientId', 'firstName lastName')
-      .populate('doctorId', 'firstName lastName')
+      .populate('patient', 'firstName lastName')
+      .populate('recordedBy', 'firstName lastName')
       .lean();
 
     // Generate signed URLs
@@ -212,7 +315,7 @@ router.get('/all-records', auth, async (req, res) => {
 });
 
 // Download health record
-router.get('/download/:recordId', auth, async (req, res) => {
+router.get('/:recordId/download', authenticate, async (req, res) => {
   try {
     const { recordId } = req.params;
     const userId = req.user.id;
@@ -224,17 +327,25 @@ router.get('/download/:recordId', auth, async (req, res) => {
     }
 
     // Check permissions
-    if (userRole !== 'doctor' && record.patientId.toString() !== userId) {
+    if (userRole !== 'doctor' && record.patient.toString() !== userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    // Get the S3 key from the s3Files array
+    if (!record.s3Files || record.s3Files.length === 0) {
+      return res.status(404).json({ error: 'No files found for this record' });
+    }
+
+    const s3Key = record.s3Files[0].s3Key;
+    const fileName = record.s3Files[0].name;
+
     // Generate signed URL for download
-    const downloadUrl = await S3Service.getSignedUrl(record.s3Key, 300); // 5 minutes
+    const downloadUrl = await S3Service.getSignedUrl(s3Key, 300); // 5 minutes
 
     res.json({
       success: true,
       downloadUrl,
-      fileName: record.name
+      fileName
     });
   } catch (error) {
     console.error('Download error:', error);
@@ -246,7 +357,7 @@ router.get('/download/:recordId', auth, async (req, res) => {
 });
 
 // Delete health record
-router.delete('/:recordId', auth, async (req, res) => {
+router.delete('/:recordId', authenticate, async (req, res) => {
   try {
     const { recordId } = req.params;
     const userId = req.user.id;
@@ -258,12 +369,21 @@ router.delete('/:recordId', auth, async (req, res) => {
     }
 
     // Check permissions (only patient owner or doctor can delete)
-    if (userRole !== 'doctor' && record.patientId.toString() !== userId) {
+    if (userRole !== 'doctor' && record.patient.toString() !== userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Delete from S3
-    await S3Service.deleteFile(record.s3Key);
+    // Delete files from S3
+    if (record.s3Files && record.s3Files.length > 0) {
+      for (const file of record.s3Files) {
+        try {
+          await S3Service.deleteFile(file.s3Key);
+        } catch (error) {
+          console.error(`Failed to delete S3 file ${file.s3Key}:`, error);
+          // Continue with database deletion even if S3 deletion fails
+        }
+      }
+    }
 
     // Delete from database
     await HealthRecord.findByIdAndDelete(recordId);
@@ -282,7 +402,7 @@ router.delete('/:recordId', auth, async (req, res) => {
 });
 
 // Bulk delete health records
-router.delete('/bulk/delete', auth, async (req, res) => {
+router.delete('/bulk/delete', authenticate, async (req, res) => {
   try {
     const { recordIds } = req.body;
     const userId = req.user.id;
@@ -296,17 +416,26 @@ router.delete('/bulk/delete', auth, async (req, res) => {
     
     // Check permissions for each record
     for (const record of records) {
-      if (userRole !== 'doctor' && record.patientId.toString() !== userId) {
+      if (userRole !== 'doctor' && record.patient.toString() !== userId) {
         return res.status(403).json({ 
-          error: `Access denied for record: ${record.name}` 
+          error: `Access denied for record: ${record.s3Files?.[0]?.name || 'Unknown'}` 
         });
       }
     }
 
-    // Delete from S3
-    await Promise.all(
-      records.map(record => S3Service.deleteFile(record.s3Key))
-    );
+    // Delete files from S3
+    for (const record of records) {
+      if (record.s3Files && record.s3Files.length > 0) {
+        for (const file of record.s3Files) {
+          try {
+            await S3Service.deleteFile(file.s3Key);
+          } catch (error) {
+            console.error(`Failed to delete S3 file ${file.s3Key}:`, error);
+            // Continue with next file
+          }
+        }
+      }
+    }
 
     // Delete from database
     await HealthRecord.deleteMany({ _id: { $in: recordIds } });

@@ -26,7 +26,16 @@ const pharmacyRoutes = require('./src/routes/pharmacy');
 const adminRoutes = require('./src/routes/admin');
 const healthRoutes = require('./src/routes/health');
 const patientDashboardRoutes = require('./src/routes/patient-dashboard');
-// const healthRecordsRoutes = require('./src/routes/healthRecords'); // Temporarily disabled to test
+let healthRecordsRoutes;
+try {
+  console.log('📦 Loading health records routes...');
+  healthRecordsRoutes = require('./src/routes/healthRecords');
+  console.log('✅ Health records routes loaded successfully');
+} catch (error) {
+  console.error('❌ Error loading health records routes:', error.message);
+  console.error('❌ Stack trace:', error.stack);
+  process.exit(1);
+}
 // const prescriptionRoutes = require('./src/routes/prescriptions');
 let messagingRoutes;
 try {
@@ -167,7 +176,7 @@ app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/patient-dashboard', patientDashboardRoutes);
-// app.use('/api/health-records', healthRecordsRoutes); // Temporarily disabled
+app.use('/api/health-records', healthRecordsRoutes);
 app.use('/api/messaging', messagingRoutes);
 // app.use('/api/prescriptions', prescriptionRoutes);
 
