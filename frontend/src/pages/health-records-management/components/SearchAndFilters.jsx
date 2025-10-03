@@ -123,46 +123,32 @@ const SearchAndFilters = ({
             </div>
           </div>
 
-          {/* Custom Date Range */}
-          {dateRange === 'custom' && (
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                type="date"
-                label="From Date"
-                className="w-full"
-              />
-              <Input
-                type="date"
-                label="To Date"
-                className="w-full"
-              />
-            </div>
-          )}
-
           {/* Filter Actions */}
-          <div className="mt-4 flex flex-col sm:flex-row gap-2 justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              iconName="RotateCcw"
-              iconPosition="left"
-              onClick={() => {
-                onSearchChange('');
-                onDateRangeChange('all');
-                onSortChange('date-desc');
-              }}
-            >
-              Reset Filters
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              iconName="Search"
-              iconPosition="left"
-              onClick={() => setIsFilterOpen(false)}
-            >
-              Apply Filters
-            </Button>
+          <div className="mt-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Showing results based on current filters
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  onSearchChange('');
+                  onDateRangeChange('all');
+                  onSortChange('date-desc');
+                  setIsFilterOpen(false);
+                }}
+              >
+                Clear All
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsFilterOpen(false)}
+              >
+                Apply Filters
+              </Button>
+            </div>
           </div>
         </div>
       )}

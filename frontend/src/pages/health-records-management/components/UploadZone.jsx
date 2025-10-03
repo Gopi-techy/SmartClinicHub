@@ -45,7 +45,8 @@ const UploadZone = ({ onFileUpload, isUploading, uploadProgress }) => {
       <div
         className={`border-2 border-dashed rounded-lg p-8 text-center transition-healthcare ${
           isDragOver
-            ? 'border-primary bg-primary/5' :'border-border hover:border-primary/50'
+            ? 'border-primary bg-primary/5' 
+            : 'border-border hover:border-primary/50'
         }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -91,7 +92,6 @@ const UploadZone = ({ onFileUpload, isUploading, uploadProgress }) => {
                   iconName="Camera"
                   iconPosition="left"
                   onClick={() => {
-                    // Mobile camera capture would be implemented here
                     fileInputRef.current?.click();
                   }}
                 >

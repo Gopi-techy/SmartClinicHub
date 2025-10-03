@@ -176,6 +176,44 @@ const healthRecordSchema = new mongoose.Schema({
     }
   }],
 
+  // S3 File Storage (for uploaded documents)
+  s3Files: [{
+    name: {
+      type: String,
+      required: true
+    },
+    type: {
+      type: String,
+      required: true
+    },
+    size: {
+      type: Number,
+      required: true
+    },
+    s3Key: {
+      type: String,
+      required: true
+    },
+    s3Url: {
+      type: String,
+      required: true
+    },
+    description: String,
+    category: {
+      type: String,
+      enum: ['Lab Results', 'Prescriptions', 'Imaging', 'Insurance', 'Personal Notes', 'Other'],
+      default: 'Other'
+    },
+    uploadDate: {
+      type: Date,
+      default: Date.now
+    },
+    uploadedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
+  }],
+
   // Status and Visibility
   status: {
     type: String,
