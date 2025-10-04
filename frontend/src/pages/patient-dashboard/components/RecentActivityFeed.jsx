@@ -42,11 +42,17 @@ const RecentActivityFeed = ({ activities = [] }) => {
   };
 
   const formatTimeAgo = (timestamp) => {
+    if (!timestamp || isNaN(new Date(timestamp).getTime())) {
+      return 'Recently';
+    }
+    
     const now = new Date();
     const activityTime = new Date(timestamp);
     const diffInMinutes = Math.floor((now - activityTime) / (1000 * 60));
     
-    if (diffInMinutes < 60) {
+    if (isNaN(diffInMinutes)) {
+      return 'Recently';
+    } else if (diffInMinutes < 60) {
       return `${diffInMinutes}m ago`;
     } else if (diffInMinutes < 1440) {
       return `${Math.floor(diffInMinutes / 60)}h ago`;

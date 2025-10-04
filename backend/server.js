@@ -26,6 +26,7 @@ const pharmacyRoutes = require('./src/routes/pharmacy');
 const adminRoutes = require('./src/routes/admin');
 const healthRoutes = require('./src/routes/health');
 const patientDashboardRoutes = require('./src/routes/patient-dashboard');
+const medicalChatRoutes = require('./src/routes/medicalChat');
 let healthRecordsRoutes;
 try {
   console.log('📦 Loading health records routes...');
@@ -178,6 +179,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/patient-dashboard', patientDashboardRoutes);
 app.use('/api/health-records', healthRecordsRoutes);
 app.use('/api/messaging', messagingRoutes);
+app.use('/api', medicalChatRoutes); // Medical chat routes are mounted here
 // app.use('/api/prescriptions', prescriptionRoutes);
 
 // Handle undefined routes
@@ -338,6 +340,7 @@ const startServer = async () => {
       logger.info(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
       logger.info(`🔗 API Documentation: http://localhost:${PORT}/api-docs`);
       logger.info(`💚 Health Check: http://localhost:${PORT}/health`);
+      logger.info(`🤖 ML Service: http://localhost:5050`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

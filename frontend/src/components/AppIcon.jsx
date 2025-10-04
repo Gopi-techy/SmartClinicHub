@@ -151,6 +151,12 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     Hash: LucideIcons.Hash,
     UserX: LucideIcons.UserX,
     UserCheck: LucideIcons.UserCheck,
+    Bot: LucideIcons.Bot,
+    Send: LucideIcons.Send,
+    Inbox: LucideIcons.Inbox,
+    MoreHorizontal: LucideIcons.MoreHorizontal,
+    Eye: LucideIcons.Eye,
+    ChevronRight: LucideIcons.ChevronRight,
     
     // Default fallback
     HelpCircle: LucideIcons.HelpCircle

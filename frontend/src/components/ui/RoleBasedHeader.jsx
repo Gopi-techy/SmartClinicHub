@@ -216,19 +216,6 @@ const RoleBasedHeader = () => {
                     Profile
                   </Button>
                   
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start px-4 py-2 text-sm"
-                    onClick={() => {
-                      setIsDropdownOpen(false);
-                      navigate('/settings');
-                    }}
-                  >
-                    <Icon name="Settings" size={16} className="mr-2" />
-                    Settings
-                  </Button>
-                  
                   <div className="border-t border-border my-1"></div>
                   
                   <Button

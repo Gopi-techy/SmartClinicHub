@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 
 // Medical Chat Route - Connect to Python ML Service
-router.post('/medical-chat', auth, async (req, res) => {
+router.post('/medical-chat', authenticate, async (req, res) => {
   try {
     const { message } = req.body;
     
@@ -24,7 +24,7 @@ router.post('/medical-chat', auth, async (req, res) => {
     }
 
     // Configure Python ML service URL (adjust as needed)
-    const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5000';
+    const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5050';
     
     // Make request to Python ML service
     const FormData = require('form-data');
@@ -43,11 +43,13 @@ router.post('/medical-chat', auth, async (req, res) => {
       throw new Error(`ML service returned status: ${response.status}`);
     }
 
+    // The ML model returns plain text, not JSON
     const aiResponse = await response.text();
     
     // Log the interaction for monitoring (optional)
     console.log(`Medical Chat - User: ${req.user.id}, Message length: ${message.length}, Response length: ${aiResponse.length}`);
     
+    // Return in the format expected by frontend
     res.json({
       success: true,
       response: aiResponse,
@@ -75,22 +77,28 @@ router.post('/medical-chat', auth, async (req, res) => {
 });
 
 // Health check for ML service
-router.get('/medical-chat/health', auth, async (req, res) => {
+router.get('/medical-chat/health', authenticate, async (req, res) => {
   try {
-    const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5000';
+    const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5050';
     const fetch = require('node-fetch');
     
-    const response = await fetch(`${ML_SERVICE_URL}/health`, {
+    // Note: Our ML service doesn't have a specific /health endpoint,
+    // so we'll just check if it's responding at all
+    const response = await fetch(`${ML_SERVICE_URL}/`, {
       method: 'GET',
       timeout: 5000 // 5 second timeout
     });
 
     if (response.ok) {
-      const healthData = await response.json();
+      // Our ML service doesn't return JSON for health checks, just HTML
+      const healthData = await response.text();
       res.json({
         success: true,
         status: 'healthy',
-        mlService: healthData
+        mlService: {
+          status: 'available',
+          message: 'ML service is responding'
+        }
       });
     } else {
       res.status(503).json({

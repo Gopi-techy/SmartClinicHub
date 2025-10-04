@@ -10,7 +10,7 @@ from src.prompt import *
 import os
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'  # Required for Flask sessions; change to a random string
+app.secret_key = 'your-secret-key-here' 
 
 load_dotenv()
 
@@ -51,7 +51,13 @@ def index():
 
 @app.route("/get", methods=["GET", "POST"])
 def chat():
-    msg = request.form["msg"]
+    # Handle both form data and JSON requests
+    if request.is_json:
+        data = request.get_json()
+        msg = data.get("msg", "")
+    else:
+        msg = request.form.get("msg", "")
+    
     input_text = msg
     print(input_text)
     
@@ -68,7 +74,7 @@ def chat():
     chat_history.append(AIMessage(content=answer))
     
     # Save chat_history to session (serialize)
-    session['chat_history'] = [msg.dict() for msg in chat_history]
+    session['chat_history'] = [msg.model_dump() for msg in chat_history]
     
     return str(answer)
 

@@ -24,8 +24,6 @@ const PatientDashboard = () => {
   const { user, userRole, isAuthenticated, isLoading } = useAuth();
   
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [error, setError] = useState(null);
@@ -53,12 +51,7 @@ const PatientDashboard = () => {
       setCurrentTime(new Date());
     }, 60000);
 
-    // Check for dark mode preference
-    const darkMode = localStorage.getItem('darkMode') === 'true';
-    setIsDarkMode(darkMode);
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    }
+    // Dark mode handling removed
 
     return () => clearInterval(timer);
   }, [navigate, user, userRole, isAuthenticated, isLoading]);
@@ -196,17 +189,6 @@ const PatientDashboard = () => {
     setCancelReason('');
   };
 
-  const toggleDarkMode = () => {
-    const newDarkMode = !isDarkMode;
-    setIsDarkMode(newDarkMode);
-    localStorage.setItem('darkMode', newDarkMode.toString());
-    
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
 
   const getGreeting = () => {
     const hour = currentTime.getHours();
@@ -304,24 +286,6 @@ const PatientDashboard = () => {
                 </p>
               </div>
               <div className="flex items-center space-x-3 mt-4 sm:mt-0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  iconName={isDarkMode ? "Sun" : "Moon"}
-                  onClick={toggleDarkMode}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  iconName="Bell"
-                  className="relative"
-                >
-                  {notifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {notifications.length}
-                    </span>
-                  )}
-                </Button>
               </div>
             </div>
           </div>
