@@ -1,83 +1,76 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, session
 from src.helper import download_hugging_face_embeddings
-from langchain.vectorstores import Pinecone
-import pinecone
-from langchain.prompts import PromptTemplate
-from langchain.llms import CTransformers
-from langchain.chains import RetrievalQA
+from langchain_pinecone import PineconeVectorStore
+from langchain_openai import ChatOpenAI
+from langchain.chains import ConversationalRetrievalChain
+from langchain.schema import HumanMessage, AIMessage 
+from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 from src.prompt import *
 import os
 
 app = Flask(__name__)
+app.secret_key = 'your-secret-key-here'  # Required for Flask sessions; change to a random string
 
 load_dotenv()
 
 PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+
+os.environ["PINECONE_API_KEY"] = PINECONE_API_KEY
+os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
 embeddings = download_hugging_face_embeddings()
 
-# Initialize Pinecone (newer version - no environment needed for free tier)
-try:
-    # Try newer Pinecone initialization
-    from pinecone import Pinecone as PineconeClient
-    pc = PineconeClient(api_key=PINECONE_API_KEY)
-    use_new_pinecone = True
-except ImportError:
-    # Fallback to older Pinecone initialization
-    pinecone.init(api_key=PINECONE_API_KEY)
-    use_new_pinecone = False
+index_name = "medical-chatbot"
+docsearch = PineconeVectorStore.from_existing_index(
+    index_name=index_name,
+    embedding=embeddings
+)
 
-index_name="medical-bot"
+retriever = docsearch.as_retriever(search_type="similarity", search_kwargs={"k": 3})
 
-#Loading the index
-if use_new_pinecone:
-    try:
-        docsearch=Pinecone.from_existing_index(index_name, embeddings)
-    except:
-        print("Index not found. Please run store_index.py first.")
-        docsearch = None
-else:
-    docsearch=Pinecone.from_existing_index(index_name, embeddings)
+chatModel = ChatOpenAI(model="gpt-4o")
+prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", system_prompt),
+        ("human", "{question}"),
+    ]
+)
 
-
-PROMPT=PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-
-chain_type_kwargs={"prompt": PROMPT}
-
-llm=CTransformers(model="model/llama-2-7b-chat.ggmlv3.q4_0.bin",
-                  model_type="llama",
-                  config={'max_new_tokens':512,
-                          'temperature':0.8})
-
-
-qa=RetrievalQA.from_chain_type(
-    llm=llm, 
-    chain_type="stuff", 
-    retriever=docsearch.as_retriever(search_kwargs={'k': 2}),
-    return_source_documents=True, 
-    chain_type_kwargs=chain_type_kwargs)
-
-
+# Create the conversational chain (memory handled per-session)
+rag_chain = ConversationalRetrievalChain.from_llm(
+    llm=chatModel,
+    retriever=retriever,
+    combine_docs_chain_kwargs={"prompt": prompt}
+)
 
 @app.route("/")
 def index():
     return render_template('chat.html')
 
-
-
 @app.route("/get", methods=["GET", "POST"])
 def chat():
     msg = request.form["msg"]
-    input = msg
-    print(input)
-    result=qa({"query": input})
-    print("Response : ", result["result"])
-    return str(result["result"])
-
-
+    input_text = msg
+    print(input_text)
+    
+    # Load chat_history from session (deserialize)
+    chat_history = [HumanMessage(**msg) if msg['type'] == 'human' else AIMessage(**msg) for msg in session.get('chat_history', [])]
+    
+    # Invoke the chain with chat_history
+    response = rag_chain.invoke({"question": input_text, "chat_history": chat_history})
+    answer = response["answer"]
+    print("Response : ", answer)
+    
+    # Update chat_history
+    chat_history.append(HumanMessage(content=input_text))
+    chat_history.append(AIMessage(content=answer))
+    
+    # Save chat_history to session (serialize)
+    session['chat_history'] = [msg.dict() for msg in chat_history]
+    
+    return str(answer)
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port= 8080, debug= True)
-
-
+    app.run(host="0.0.0.0", port=5050, debug=True)

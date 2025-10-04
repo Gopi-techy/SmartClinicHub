@@ -46,6 +46,17 @@ const MessagingPage = () => {
     return () => window.removeEventListener('resize', checkMobileView);
   }, []);
 
+  // Prevent body scroll on messaging page
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, []);
+
   // Initialize messaging service and load conversations
   useEffect(() => {
     if (!user || !token) {
@@ -422,17 +433,17 @@ const MessagingPage = () => {
         <meta name="description" content="Secure messaging between patients and doctors on SmartClinicHub platform." />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
+      <div className="fixed inset-0 bg-background overflow-hidden">
         <RoleBasedHeader />
-        {isPatient && <PatientBottomTabs />}
         {isPatient && <PatientSidebar />}
         {isDoctor && <ProviderSidebar />}
+        {isPatient && <PatientBottomTabs />}
 
-        {/* Main Content */}
-        <div className={`pt-16 ${isPatient ? 'pb-20 md:pb-8 md:ml-64' : 'md:ml-80'}`}>
-          <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)] overflow-hidden">
+        {/* Main Content - positioned to avoid overlaps */}
+        <div className={`absolute top-16 ${isPatient ? 'bottom-20 md:bottom-0 left-0 right-0 md:left-64' : 'bottom-0 left-0 right-0 md:left-80'} overflow-hidden`}>
+          <div className="h-full flex overflow-hidden">
             {/* Desktop Layout */}
-            <div className="hidden md:flex h-full">
+            <div className="hidden md:flex h-full w-full overflow-hidden">
               {/* Conversations Sidebar */}
               <ConversationsList
                 conversations={conversations}
@@ -458,8 +469,8 @@ const MessagingPage = () => {
             </div>
 
             {/* Mobile Layout */}
-            <div className="md:hidden h-full">
-              {!showChatOnMobile ? (
+            <div className="md:hidden h-full w-full overflow-hidden">
+                          {!showChatOnMobile ? (
                 // Conversations List View
                 <ConversationsList
                   conversations={conversations}
