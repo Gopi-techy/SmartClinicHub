@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
@@ -10,11 +10,31 @@ const SymptomAnalyzer = ({ onBack }) => {
   const [duration, setDuration] = useState('');
   const [analysisResult, setAnalysisResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isApiAvailable, setIsApiAvailable] = useState(true);
   const [patientInfo, setPatientInfo] = useState({
     age: '',
     gender: '',
     medicalHistory: []
   });
+  
+  // Check if the AI API is available on component mount
+  useEffect(() => {
+    const checkApiStatus = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/health', {
+          method: 'GET',
+          timeout: 3000 // 3 second timeout
+        });
+        
+        setIsApiAvailable(response.ok);
+      } catch (error) {
+        console.log('API health check failed:', error);
+        setIsApiAvailable(false);
+      }
+    };
+    
+    checkApiStatus();
+  }, []);
 
   const addSymptom = () => {
     if (currentSymptom.trim()) {
@@ -36,6 +56,162 @@ const SymptomAnalyzer = ({ onBack }) => {
     setSymptoms(symptoms.filter(s => s.id !== id));
   };
 
+  // Function to generate mock symptom analysis data
+  const generateMockAnalysis = () => {
+    // Create base urgency level based on symptom count and severity
+    const highestSeverity = Math.max(...symptoms.map(s => s.severity));
+    let urgencyLevel = 'low';
+    if (highestSeverity >= 9) urgencyLevel = 'emergency';
+    else if (highestSeverity >= 7) urgencyLevel = 'high';
+    else if (highestSeverity >= 4) urgencyLevel = 'medium';
+    
+    // Generate possible conditions based on symptoms
+    const possibleConditions = [];
+    const symptomNames = symptoms.map(s => s.name.toLowerCase());
+    
+    // Common condition patterns
+    if (symptomNames.some(s => s.includes('headache') || s.includes('head') || s.includes('pain'))) {
+      possibleConditions.push({
+        condition: 'Tension Headache',
+        description: 'A common type of headache characterized by mild to moderate pain.',
+        likelihood: 'Likely',
+        severity: 'mild'
+      });
+      
+      if (symptomNames.some(s => s.includes('nausea') || s.includes('light') || s.includes('sensitive'))) {
+        possibleConditions.push({
+          condition: 'Migraine',
+          description: 'Recurring headaches with moderate to severe pain, often with sensitivity to light.',
+          likelihood: 'Possible',
+          severity: 'moderate'
+        });
+      }
+    }
+    
+    if (symptomNames.some(s => s.includes('fever') || s.includes('temperature'))) {
+      possibleConditions.push({
+        condition: 'Common Cold',
+        description: 'Viral infection affecting the upper respiratory tract.',
+        likelihood: 'Likely',
+        severity: 'mild'
+      });
+      
+      if (symptomNames.some(s => s.includes('cough') || s.includes('throat') || s.includes('congestion'))) {
+        possibleConditions.push({
+          condition: 'Seasonal Flu',
+          description: 'Influenza virus causing respiratory symptoms and fever.',
+          likelihood: 'Possible',
+          severity: 'moderate'
+        });
+      }
+    }
+    
+    if (symptomNames.some(s => s.includes('stomach') || s.includes('nausea') || s.includes('vomit'))) {
+      possibleConditions.push({
+        condition: 'Gastroenteritis',
+        description: 'Inflammation of the stomach and intestines, often due to infection.',
+        likelihood: 'Likely',
+        severity: 'moderate'
+      });
+    }
+    
+    // Add generic condition if none match
+    if (possibleConditions.length === 0) {
+      possibleConditions.push({
+        condition: 'General Malaise',
+        description: 'A feeling of general discomfort, illness, or lack of well-being.',
+        likelihood: 'Possible',
+        severity: 'mild'
+      });
+    }
+    
+    // Generate generic actions based on urgency
+    let immediateActions = [];
+    let seekMedicalAttention = '';
+    let homeCare = [];
+    let redFlags = [];
+    
+    // Common recommendations
+    immediateActions = [
+      'Rest and avoid strenuous activity',
+      'Stay hydrated by drinking plenty of fluids',
+      'Monitor your symptoms for any changes'
+    ];
+    
+    // Add age-specific recommendations
+    const age = parseInt(patientInfo.age, 10);
+    if (!isNaN(age)) {
+      if (age > 65) {
+        immediateActions.push('Consider checking vital signs regularly');
+      }
+      if (age < 12) {
+        immediateActions.push('Ensure the child is drinking enough fluids');
+      }
+    }
+    
+    // Based on urgency level
+    switch (urgencyLevel) {
+      case 'emergency':
+        seekMedicalAttention = 'Seek immediate medical attention or call emergency services (112). Your symptoms suggest a potentially serious condition that requires prompt medical evaluation.';
+        redFlags = [
+          'Difficulty breathing or shortness of breath',
+          'Severe chest or abdominal pain',
+          'Sudden severe headache or confusion',
+          'Sudden dizziness, weakness, or changes in vision'
+        ];
+        break;
+      case 'high':
+        seekMedicalAttention = 'Seek medical attention within the next 24 hours. Your symptoms should be evaluated by a healthcare provider soon.';
+        homeCare = [
+          { suggestion: 'Use over-the-counter pain relievers as directed', duration: 'As needed', precautions: 'Do not exceed recommended dosage' },
+          { suggestion: 'Apply cold or warm compress to affected areas', duration: '15-20 minutes at a time', precautions: 'Do not apply directly to skin' }
+        ];
+        break;
+      case 'medium':
+        seekMedicalAttention = 'Schedule an appointment with your healthcare provider within the next few days if symptoms persist or worsen.';
+        homeCare = [
+          { suggestion: 'Use over-the-counter pain relievers as directed', duration: 'As needed', precautions: 'Do not exceed recommended dosage' },
+          { suggestion: 'Rest and limit normal activities', duration: '24-48 hours', precautions: 'Gradually return to normal activities' },
+          { suggestion: 'Stay hydrated with water and electrolyte solutions', duration: 'Continuously', precautions: 'Avoid caffeine and alcohol' }
+        ];
+        break;
+      default: // low
+        seekMedicalAttention = 'Monitor your symptoms. If they persist for more than 7 days or worsen, consult with your healthcare provider.';
+        homeCare = [
+          { suggestion: 'Rest and ensure adequate sleep', duration: '7-9 hours nightly', precautions: 'Maintain a regular sleep schedule' },
+          { suggestion: 'Stay hydrated with water', duration: 'Throughout the day', precautions: 'Avoid excessive caffeine' },
+          { suggestion: 'Use over-the-counter medications as needed', duration: 'As directed on packaging', precautions: 'Follow dosage instructions carefully' }
+        ];
+        break;
+    }
+    
+    return {
+      success: true,
+      analysis: {
+        urgencyLevel,
+        urgencyReason: `Based on your ${symptoms.length} reported symptom(s) with a maximum severity of ${highestSeverity}/10, this assessment suggests ${urgencyLevel} urgency.`,
+        possibleConditions,
+        immediateActions,
+        seekMedicalAttention,
+        homeCare,
+        redFlags,
+        recommendations: [
+          {
+            action: 'Monitor your symptoms',
+            timeframe: '24-48 hours',
+            importance: 'High'
+          },
+          {
+            action: 'Follow the recommended self-care measures',
+            timeframe: 'As needed',
+            importance: 'Medium'
+          }
+        ]
+      },
+      disclaimer: 'This analysis is generated from mock data as the AI service is currently unavailable. The information provided is for educational purposes only and is not a substitute for professional medical advice, diagnosis, or treatment.'
+    };
+  };
+
   const analyzeSymptoms = async () => {
     if (symptoms.length === 0) {
       alert('Please add at least one symptom to analyze.');
@@ -43,6 +219,17 @@ const SymptomAnalyzer = ({ onBack }) => {
     }
 
     setLoading(true);
+    
+    // If API is not available, use mock data after a simulated delay
+    if (!isApiAvailable) {
+      setTimeout(() => {
+        setAnalysisResult(generateMockAnalysis());
+        setLoading(false);
+      }, 2000); // 2 second simulated delay
+      return;
+    }
+    
+    // Otherwise proceed with real API call
     try {
       const token = localStorage.getItem('authToken');
       if (!token) {
@@ -103,20 +290,19 @@ const SymptomAnalyzer = ({ onBack }) => {
     } catch (error) {
       console.error('Error analyzing symptoms:', error);
       
-      let userMessage = '';
-      if (error.name === 'AbortError') {
-        userMessage = 'Analysis timeout. The AI service is taking too long to respond. Please try again with fewer symptoms or simpler descriptions.';
+      // Fall back to mock data if the real API call fails
+      if (!isApiAvailable || error.name === 'AbortError' || error.message.includes('overloaded') || 
+          error.message.includes('503') || error.message.includes('Too many requests') || 
+          error.message.includes('429')) {
+        console.log('Falling back to mock data due to API unavailability');
+        setAnalysisResult(generateMockAnalysis());
       } else if (error.message.includes('session has expired')) {
         return; // Already handled above
-      } else if (error.message.includes('overloaded') || error.message.includes('503')) {
-        userMessage = '🔄 AI service is currently overloaded due to high traffic. Please wait 2-3 minutes and try again.';
-      } else if (error.message.includes('Too many requests') || error.message.includes('429')) {
-        userMessage = '⏰ Rate limit reached. Please wait 1 minute before trying again.';
       } else {
-        userMessage = `Failed to analyze symptoms: ${error.message}. Please try again.`;
+        let userMessage = `Failed to analyze symptoms: ${error.message}. Falling back to mock data.`;
+        alert(userMessage);
+        setAnalysisResult(generateMockAnalysis());
       }
-      
-      alert(userMessage);
     } finally {
       setLoading(false);
     }
@@ -431,7 +617,7 @@ const SymptomAnalyzer = ({ onBack }) => {
           Back
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Symptom Analyzer</h1>
+          <h1 className="text-2xl font-bold text-foreground">Medical Chatbot</h1>
           <p className="text-muted-foreground">Describe your symptoms to get AI-powered health insights</p>
         </div>
       </div>
@@ -548,7 +734,7 @@ const SymptomAnalyzer = ({ onBack }) => {
             className="w-full"
             size="lg"
           >
-            {loading ? "Analyzing with AI... (30-60 seconds)" : "Analyze Symptoms with AI"}
+            {loading ? `Analyzing${isApiAvailable ? ' with AI' : ''}... (${isApiAvailable ? '30-60' : '2-3'} seconds)` : `Analyze Symptoms ${isApiAvailable ? 'with AI' : ''}`}
           </Button>
 
           {/* Loading Progress Message */}
@@ -558,10 +744,12 @@ const SymptomAnalyzer = ({ onBack }) => {
                 <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
                 <div>
                   <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                    🤖 AI is analyzing your symptoms...
+                    {isApiAvailable ? '🤖 AI is analyzing your symptoms...' : '⚙️ Analyzing your symptoms...'}
                   </p>
                   <p className="text-xs text-blue-600 dark:text-blue-400">
-                    Connecting to Google Gemini AI • This may take 30-60 seconds
+                    {isApiAvailable 
+                      ? 'Connecting to Medical AI • This may take 30-60 seconds' 
+                      : 'Using simulated analysis • This will take a few seconds'}
                   </p>
                 </div>
               </div>
@@ -570,11 +758,13 @@ const SymptomAnalyzer = ({ onBack }) => {
 
           {/* AI Status Info */}
           {!loading && !analysisResult && (
-            <div className="mt-4 p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+            <div className={`mt-4 p-3 ${isApiAvailable ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' : 'bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800'} rounded-lg border`}>
               <div className="flex items-center space-x-2 text-sm">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-green-800 dark:text-green-200">
-                  ✅ Real AI powered by Google Gemini is ready
+                <div className={`w-2 h-2 ${isApiAvailable ? 'bg-green-500' : 'bg-amber-500'} rounded-full animate-pulse`}></div>
+                <span className={`${isApiAvailable ? 'text-green-800 dark:text-green-200' : 'text-amber-800 dark:text-amber-200'}`}>
+                  {isApiAvailable 
+                    ? '✅ Medical AI chatbot is ready to assist you' 
+                    : '⚠️ Using simulated analysis - AI service is currently unavailable'}
                 </span>
               </div>
             </div>

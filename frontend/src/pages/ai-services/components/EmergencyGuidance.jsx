@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
@@ -13,6 +13,26 @@ const EmergencyGuidance = ({ onBack }) => {
   const [currentSymptom, setCurrentSymptom] = useState('');
   const [guidance, setGuidance] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isApiAvailable, setIsApiAvailable] = useState(true);
+  
+  // Check if the AI API is available on component mount
+  useEffect(() => {
+    const checkApiStatus = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/health', {
+          method: 'GET',
+          timeout: 3000 // 3 second timeout
+        });
+        
+        setIsApiAvailable(response.ok);
+      } catch (error) {
+        console.log('API health check failed:', error);
+        setIsApiAvailable(false);
+      }
+    };
+    
+    checkApiStatus();
+  }, []);
 
   const emergencyTypes = [
     'Cardiac Emergency',
@@ -45,6 +65,172 @@ const EmergencyGuidance = ({ onBack }) => {
       symptoms: emergencyData.symptoms.filter((_, i) => i !== index)
     });
   };
+  
+  // Function to generate mock emergency guidance based on the selected emergency type
+  const generateMockGuidance = () => {
+    // Default values
+    let priority = 'high';
+    let callEmergencyServices = true;
+    let emergencyNumber = '112';
+    let immediateActions = [];
+    let stepByStepInstructions = [];
+    let contraindications = [];
+    let monitoringPoints = [];
+    let warningSignsToWatch = [];
+    let positioningGuidance = '';
+    let cprInstructions = { required: false, steps: [] };
+    
+    // Generate guidance based on emergency type
+    switch (emergencyData.emergencyType) {
+      case 'Cardiac Emergency':
+        priority = 'critical';
+        immediateActions = [
+          { step: 1, action: 'Call emergency services (112) immediately', timeframe: 'Now' },
+          { step: 2, action: 'Check if the person is responsive', timeframe: 'Immediately' },
+          { step: 3, action: 'If unresponsive, check for breathing', timeframe: 'Within 10 seconds' },
+          { step: 4, action: 'If not breathing normally, begin CPR', timeframe: 'Immediately' }
+        ];
+        stepByStepInstructions = [
+          { step: 1, instruction: 'Place the person on their back on a firm surface', important: 'Make sure the area is safe' },
+          { step: 2, instruction: "Kneel beside the person's chest", important: '' },
+          { step: 3, instruction: 'Place the heel of one hand on the center of the chest', important: 'Between the nipples' },
+          { step: 4, instruction: 'Place your other hand on top and interlock fingers', important: 'Keep arms straight' },
+          { step: 5, instruction: 'Compress the chest at least 5-6 cm deep at a rate of 100-120 compressions per minute', important: 'Allow chest to recoil completely between compressions' }
+        ];
+        contraindications = [
+          'Do not move the person unless necessary',
+          'Do not give food or water',
+          'Do not leave the person alone'
+        ];
+        monitoringPoints = [
+          'Breathing patterns',
+          'Skin color (pale, blue, or normal)',
+          'Level of consciousness'
+        ];
+        warningSignsToWatch = [
+          'Cessation of breathing',
+          'Loss of consciousness',
+          'Blue or gray skin color'
+        ];
+        positioningGuidance = 'Keep the person lying flat on their back on a firm surface for CPR. If they are breathing and unconscious, place them in the recovery position (on their side).';  
+        cprInstructions = {
+          required: true,
+          steps: [
+            'Push hard and fast in the center of the chest (100-120 compressions per minute)',
+            'Compress to a depth of at least 5-6 cm (2 inches)',
+            'Allow complete chest recoil between compressions',
+            'Minimize interruptions to chest compressions',
+            'Continue CPR until emergency services arrive or an AED becomes available'
+          ]
+        };
+        break;
+        
+      case 'Breathing Difficulty':
+        priority = 'high';
+        immediateActions = [
+          { step: 1, action: 'Call emergency services (112)', timeframe: 'Now' },
+          { step: 2, action: 'Help the person into a comfortable position that makes breathing easier', timeframe: 'Immediately' },
+          { step: 3, action: 'Loosen any tight clothing', timeframe: 'Immediately' },
+          { step: 4, action: 'Ensure fresh air is available', timeframe: 'Immediately' }
+        ];
+        stepByStepInstructions = [
+          { step: 1, instruction: 'Help the person sit upright, leaning slightly forward', important: 'This position helps maximize lung expansion' },
+          { step: 2, instruction: 'Loosen any tight clothing around the neck or chest', important: '' },
+          { step: 3, instruction: 'If the person has medication for breathing problems (like an inhaler), help them use it', important: 'Follow the prescription instructions' },
+          { step: 4, instruction: 'Encourage slow, deep breaths', important: 'In through the nose, out through the mouth' }
+        ];
+        contraindications = [
+          'Do not have the person lie flat',
+          'Do not give food or drink',
+          'Do not leave the person alone'
+        ];
+        monitoringPoints = [
+          'Breathing rate and difficulty',
+          'Skin color (watch for bluish tint)',
+          'Level of consciousness'
+        ];
+        warningSignsToWatch = [
+          'Blue lips or fingernails',
+          'Inability to speak in full sentences',
+          'Confusion or drowsiness',
+          'Gasping for air or very rapid breathing'
+        ];
+        positioningGuidance = 'Have the person sit upright, leaning slightly forward with arms resting on a table if available. This position helps open airways and makes breathing easier.';  
+        break;
+        
+      case 'Severe Bleeding':
+        priority = 'critical';
+        immediateActions = [
+          { step: 1, action: 'Call emergency services (112)', timeframe: 'Now' },
+          { step: 2, action: 'Apply direct pressure to the wound', timeframe: 'Immediately' },
+          { step: 3, action: 'Elevate the wounded area if possible', timeframe: 'After applying pressure' },
+          { step: 4, action: 'Secure a clean bandage or cloth over the wound', timeframe: 'As soon as available' }
+        ];
+        stepByStepInstructions = [
+          { step: 1, instruction: 'Apply firm pressure directly on the wound using a clean cloth, bandage, or your hand', important: 'Use gloves if available to prevent infection' },
+          { step: 2, instruction: 'Maintain pressure for at least 15 minutes', important: 'Do not release pressure to check the wound' },
+          { step: 3, instruction: 'If blood soaks through, add another cloth on top and continue pressure', important: 'Do not remove the first cloth' },
+          { step: 4, instruction: 'Once bleeding slows, secure a clean bandage tightly over the wound', important: 'Ensure bandage is tight but not cutting off circulation' }
+        ];
+        contraindications = [
+          'Do not remove objects embedded in the wound',
+          'Do not apply a tourniquet unless specifically trained',
+          'Do not clean the wound deeply - focus on stopping bleeding'
+        ];
+        monitoringPoints = [
+          'Amount of blood loss',
+          'Pulse and skin color',
+          'Signs of shock (pale skin, rapid breathing, confusion)'
+        ];
+        warningSignsToWatch = [
+          'Blood spurting from wound',
+          "Blood that won't stop flowing after 15 minutes of pressure",
+          'Signs of shock (confusion, cold/clammy skin, rapid pulse)'
+        ];
+        positioningGuidance = 'Have the person lie down and elevate the injured area above the heart level if possible. If you suspect a head, neck, or spine injury, keep the person still and do not move them.';  
+        break;
+        
+      // Add mock guidance for other emergency types
+      default:
+        priority = 'high';
+        immediateActions = [
+          { step: 1, action: 'Call emergency services (112)', timeframe: 'Now' },
+          { step: 2, action: 'Stay with the person and keep them calm', timeframe: 'Continuously' },
+          { step: 3, action: 'Monitor their condition', timeframe: 'Continuously' }
+        ];
+        stepByStepInstructions = [
+          { step: 1, instruction: 'Call 112 and provide your exact location', important: 'Stay on the line with the dispatcher' },
+          { step: 2, instruction: 'Follow the emergency dispatcher\'s instructions', important: 'They will guide you through necessary steps' },
+          { step: 3, instruction: 'Keep the person comfortable and calm', important: 'Speak in a reassuring voice' }
+        ];
+        contraindications = ['Do not leave the person alone', 'Do not move the person unless necessary'];
+        monitoringPoints = ['Breathing', 'Consciousness', 'Pulse', 'Changes in condition'];
+        warningSignsToWatch = ['Loss of consciousness', 'Difficulty breathing', 'Worsening symptoms'];
+        positioningGuidance = 'Keep the person comfortable. If they are unconscious but breathing, place them in the recovery position (on their side).';  
+        break;
+    }
+    
+    return {
+      data: {
+        guidance: {
+          priority,
+          callEmergencyServices,
+          emergencyNumber,
+          immediateActions,
+          stepByStepInstructions,
+          contraindications,
+          monitoringPoints,
+          warningSignsToWatch,
+          positioningGuidance,
+          cprInstructions
+        },
+        criticalNote: `${priority.toUpperCase()} PRIORITY: ${emergencyData.emergencyType}`,
+        disclaimer: isApiAvailable ? 
+          'This guidance is provided by an AI system for educational purposes. Always follow the advice of emergency dispatchers and medical professionals.' : 
+          'AI service is currently unavailable. This is simulated emergency guidance using predefined protocols. Always call emergency services for real emergencies.'
+      }
+    };
+  };
 
   const getEmergencyGuidance = async () => {
     if (!emergencyData.emergencyType) {
@@ -53,12 +239,27 @@ const EmergencyGuidance = ({ onBack }) => {
     }
 
     setLoading(true);
+    
+    // If API is not available, use mock data after a simulated delay
+    if (!isApiAvailable) {
+      setTimeout(() => {
+        const mockResult = generateMockGuidance();
+        setGuidance(mockResult.data);
+        setLoading(false);
+      }, 1500); // 1.5 second simulated delay
+      return;
+    }
+    
+    // Otherwise proceed with real API call
     try {
       const token = localStorage.getItem('authToken');
       if (!token) {
         throw new Error('Authentication required');
       }
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
       const response = await fetch('http://localhost:5000/api/ai/emergency-guidance', {
         method: 'POST',
         headers: {
@@ -73,48 +274,37 @@ const EmergencyGuidance = ({ onBack }) => {
           },
           location: emergencyData.location
         }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
+
+      if (response.status === 401) {
+        // Token expired or invalid
+        localStorage.removeItem('authToken');
+        alert('Your session has expired. Please log in again.');
+        window.location.href = '/login';
+        return;
+      }
 
       if (!response.ok) {
-        throw new Error('Failed to get emergency guidance');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to get emergency guidance');
       }
 
       const result = await response.json();
       setGuidance(result.data);
     } catch (error) {
       console.error('Error getting emergency guidance:', error);
-      // Show fallback emergency guidance
-      setGuidance({
-        guidance: {
-          priority: 'critical',
-          callEmergencyServices: true,
-          emergencyNumber: '112',
-          immediateActions: [
-            {
-              step: 1,
-              action: 'Call emergency services immediately',
-              timeframe: 'Now'
-            },
-            {
-              step: 2,
-              action: 'Stay with the patient and keep them calm',
-              timeframe: 'Continuously'
-            }
-          ],
-          stepByStepInstructions: [
-            {
-              step: 1,
-              instruction: 'Call 112 and provide your exact location',
-              important: 'Stay on the line with the dispatcher'
-            }
-          ],
-          contraindications: ['Do not leave patient alone'],
-          monitoringPoints: ['Breathing', 'Consciousness', 'Pulse'],
-          warningSignsToWatch: ['Loss of consciousness', 'Stopped breathing']
-        },
-        criticalNote: 'EMERGENCY SERVICES SHOULD BE CONTACTED IMMEDIATELY',
-        disclaimer: 'AI service temporarily unavailable. Please contact emergency services immediately.'
-      });
+      
+      // Generate context-specific mock data based on the selected emergency type
+      const mockResult = generateMockGuidance();
+      setGuidance(mockResult.data);
+      
+      // Only show alert for certain errors
+      if (error.name !== 'AbortError' && !error.message.includes('Failed to fetch')) {
+        alert('Unable to connect to AI service. Using predefined emergency guidance protocols.');
+      }
     } finally {
       setLoading(false);
     }
@@ -453,16 +643,33 @@ const EmergencyGuidance = ({ onBack }) => {
           </div>
 
           {/* Get Guidance Button */}
-          <Button
-            onClick={getEmergencyGuidance}
-            loading={loading}
-            disabled={!emergencyData.emergencyType}
-            iconName="AlertTriangle"
-            className="w-full bg-red-600 hover:bg-red-700 text-white"
-            size="lg"
-          >
-            Get Emergency Guidance
-          </Button>
+          <div className="space-y-3">
+            <Button
+              onClick={getEmergencyGuidance}
+              loading={loading}
+              disabled={!emergencyData.emergencyType}
+              iconName="AlertTriangle"
+              className="w-full bg-red-600 hover:bg-red-700 text-white"
+              size="lg"
+            >
+              {loading ? 
+              `${isApiAvailable ? 'Analyzing Emergency...' : 'Preparing Guidance...'}` : 
+              `Get Emergency Guidance {!isApiAvailable && '(Using Protocols)'}${!isApiAvailable ? ' (Using Protocols)' : ''}`
+            }
+            </Button>
+            
+            {/* API Status Indicator */}
+            {!isApiAvailable && (
+              <div className="p-2 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
+                <div className="flex items-center space-x-2 text-sm">
+                  <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                  <span className="text-amber-800 dark:text-amber-200">
+                    ⚠️ Using predefined protocols - AI service is unavailable
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Info Panel */}
