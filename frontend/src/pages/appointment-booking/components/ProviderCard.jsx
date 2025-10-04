@@ -3,7 +3,7 @@ import Icon from '../../../components/AppIcon';
 import Image from '../../../components/AppImage';
 
 
-const ProviderCard = ({ provider, isSelected, onSelect }) => {
+const ProviderCard = ({ provider, isSelected, onSelect, showPersonIcon = false }) => {
   const formatNextAvailable = (date) => {
     const today = new Date();
     const appointmentDate = new Date(date);
@@ -37,14 +37,25 @@ const ProviderCard = ({ provider, isSelected, onSelect }) => {
     >
       <div className="flex items-start space-x-4">
         <div className="relative">
-          <Image
-            src={provider.image}
-            alt={provider.name}
-            className="w-16 h-16 rounded-full object-cover"
-          />
+          {provider.image ? (
+            <Image
+              src={provider.image}
+              alt={provider.name}
+              className="w-16 h-16 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Icon name="User" size={32} className="text-primary" />
+            </div>
+          )}
           {provider.isOnline && (
             <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-success rounded-full border-2 border-white flex items-center justify-center">
               <div className="w-2 h-2 bg-white rounded-full"></div>
+            </div>
+          )}
+          {showPersonIcon && (
+            <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary rounded-full border-2 border-white flex items-center justify-center">
+              <Icon name="User" size={12} className="text-white" />
             </div>
           )}
         </div>

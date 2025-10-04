@@ -175,9 +175,15 @@ const AppointmentBooking = () => {
   ];
 
   const defaultTimeSlots = [
-    "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-    "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
-    "18:00", "18:30", "19:00", "19:30"
+    // Morning (6:00 AM - 12:00 PM)
+    "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", 
+    "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00",
+    // Afternoon (12:00 PM - 5:00 PM)
+    "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", 
+    "16:00", "16:30", "17:00",
+    // Evening (5:00 PM - 10:00 PM)
+    "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30",
+    "21:00", "21:30", "22:00"
   ];
 
   const handleProviderSelect = (provider) => {
@@ -375,6 +381,69 @@ const AppointmentBooking = () => {
     );
   }
 
+  // Define all state hooks outside conditional blocks
+  const [doctorViewSaveSuccess, setDoctorViewSaveSuccess] = useState(false);
+  
+  const handleBackToDashboard = () => {
+    navigate('/doctor-dashboard');
+  };
+  
+  // Special view for doctors - show only calendar and slots
+  if (userRole === 'doctor' || userRole === 'admin') {
+    return (
+      <>
+        <Helmet>
+          <title>Manage Appointment Slots - SmartClinicHub</title>
+          <meta name="description" content="Manage your availability and appointment slots at SmartClinicHub." />
+          <meta name="keywords" content="doctor schedule, availability, appointment slots, clinic scheduling" />
+        </Helmet>
+
+        <div className="min-h-screen bg-background">
+          <RoleBasedHeader />
+          <ProviderSidebar />
+
+          <main className="pt-16 md:pl-80">
+            <div className="max-w-6xl mx-auto px-4 py-6">
+              <div className="mb-8">
+                <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
+                  Manage Your Availability
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                  Set your available appointment slots and manage your schedule
+                </p>
+              </div>
+
+              <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
+                <CalendarView
+                  selectedDate={selectedDate}
+                  onDateSelect={setSelectedDate}
+                  availableSlots={availableSlots.length > 0 ? availableSlots : defaultTimeSlots.map(time => ({
+                    startTime: time,
+                    available: true
+                  }))}
+                  onTimeSelect={handleTimeSelect}
+                  selectedTime={selectedTime}
+                  loading={loading}
+                  isDoctorView={true}
+                />
+              </div>
+              
+              <div className="flex justify-end mt-8 space-x-4">
+                <Button
+                  onClick={handleBackToDashboard}
+                  iconName="ArrowLeft"
+                >
+                  Back to Dashboard
+                </Button>
+              </div>
+            </div>
+          </main>
+        </div>
+      </>
+    );
+  }
+
+  // Regular appointment booking view for patients
   return (
     <>
       <Helmet>
@@ -388,11 +457,8 @@ const AppointmentBooking = () => {
       
       {userRole === 'patient' && <PatientBottomTabs />}
       {userRole === 'patient' && <PatientSidebar />}
-      {(userRole === 'doctor' || userRole === 'admin') && <ProviderSidebar />}
 
-      <main className={`pt-16 ${
-        userRole === 'patient' ?'pb-20 md:pb-4 md:pl-64' :'md:pl-80'
-      }`}>
+      <main className="pt-16 pb-20 md:pb-4 md:pl-64">
         <BookingProgressIndicator currentStep={currentStep} totalSteps={4} />
 
         <div className="max-w-6xl mx-auto px-4 py-6">
@@ -443,8 +509,13 @@ const AppointmentBooking = () => {
                       />
                     </div>
                   </div>
-                  <Button variant="outline" iconName="Filter" size="sm">
-                    Filters
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center space-x-2"
+                  >
+                    <Icon name="Filter" size={16} />
+                    <span>Filters</span>
                   </Button>
                 </div>
 
@@ -477,6 +548,7 @@ const AppointmentBooking = () => {
                         provider={provider}
                         isSelected={selectedProvider?.id === provider.id}
                         onSelect={handleProviderSelect}
+                        showPersonIcon={true}
                       />
                     ))}
                   </div>

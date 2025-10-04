@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 
-const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect, selectedTime }) => {
+const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect, selectedTime, isDoctorView = false, onSaveAvailability }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedSlots, setSelectedSlots] = useState({});
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -43,6 +44,28 @@ const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect
     // Allow dates from today onwards (time slots will be filtered to 1 hour from now)
     return date >= today;
   };
+  
+  const filterAvailableTimeSlots = (slots, selectedDate) => {
+    // If selected date is not today, return all slots
+    const today = new Date();
+    const isToday = selectedDate && 
+      selectedDate.getDate() === today.getDate() && 
+      selectedDate.getMonth() === today.getMonth() && 
+      selectedDate.getFullYear() === today.getFullYear();
+      
+    if (!isToday) return slots;
+    
+    // If it is today, filter out past times (plus 30 min buffer)
+    const currentHour = today.getHours();
+    const currentMinute = today.getMinutes() + 30; // Add 30 min buffer
+    
+    return slots.filter(slot => {
+      const [slotHours, slotMinutes] = slot.split(':').map(Number);
+      if (slotHours > currentHour) return true;
+      if (slotHours === currentHour && slotMinutes > currentMinute) return true;
+      return false;
+    });
+  };
 
   const isDateSelected = (date) => {
     if (!date || !selectedDate) return false;
@@ -64,30 +87,100 @@ const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect
   };
 
   const groupTimeSlots = (slots) => {
-    const morning = slots.filter(slot => {
+    // Make sure we display all slots
+    const allSlots = [...slots];
+    
+    const morning = allSlots.filter(slot => {
       const hour = parseInt(slot.split(':')[0]);
       return hour >= 6 && hour < 12;
     });
     
-    const afternoon = slots.filter(slot => {
+    const afternoon = allSlots.filter(slot => {
       const hour = parseInt(slot.split(':')[0]);
       return hour >= 12 && hour < 17;
     });
     
-    const evening = slots.filter(slot => {
+    const evening = allSlots.filter(slot => {
       const hour = parseInt(slot.split(':')[0]);
-      return hour >= 17 && hour < 22;
+      return hour >= 17 && hour <= 22;
     });
 
     return { morning, afternoon, evening };
   };
 
-  const days = getDaysInMonth(currentMonth);
+  const days = useMemo(() => getDaysInMonth(currentMonth), [currentMonth]);
+  
   // Support both array of strings and array of objects with startTime
-  const slotStrings = Array.isArray(availableSlots) && availableSlots.length > 0 && typeof availableSlots[0] === 'object'
-    ? availableSlots.map(slot => slot.startTime)
-    : availableSlots;
-  const { morning, afternoon, evening } = groupTimeSlots(slotStrings);
+  const slotStrings = useMemo(() => {
+    return Array.isArray(availableSlots) && availableSlots.length > 0 && typeof availableSlots[0] === 'object'
+      ? availableSlots.map(slot => slot.startTime)
+      : availableSlots;
+  }, [availableSlots]);
+    
+  // Filter out past time slots for today
+  const filteredSlots = useMemo(() => {
+    return filterAvailableTimeSlots(slotStrings, selectedDate);
+  }, [slotStrings, selectedDate]);
+  
+  // Group time slots by morning, afternoon, evening
+  const { morning, afternoon, evening } = useMemo(() => {
+    return groupTimeSlots(filteredSlots);
+  }, [filteredSlots]);
+  
+  // Initialize selected slots from available slots if in doctor view
+  useEffect(() => {
+    if (isDoctorView && selectedDate) {
+      const initialSelectedSlots = {};
+      // Use availableSlots directly instead of derived filteredSlots
+      const slotsToProcess = Array.isArray(availableSlots) ? availableSlots : [];
+      
+      slotsToProcess.forEach(slot => {
+        // If it's an object with startTime property
+        if (typeof slot === 'object' && slot.startTime) {
+          initialSelectedSlots[slot.startTime] = slot.available !== false;
+        } else {
+          // If it's just a string time
+          initialSelectedSlots[slot] = true;
+        }
+      });
+      
+      setSelectedSlots(initialSelectedSlots);
+    }
+  }, [isDoctorView, selectedDate, availableSlots]);
+
+  // In the simplified UI, we don't need to toggle slot availability
+  const toggleSlotAvailability = (time, isAvailable) => {
+    // No-op in simplified view
+    if (isDoctorView && onTimeSelect) {
+      onTimeSelect(time);
+    }
+  };
+  
+  const getSelectedSlotsData = () => {
+    if (!selectedDate || !isDoctorView) return [];
+    
+    // Format as YYYY-MM-DD
+    const dateString = selectedDate.toISOString().split('T')[0];
+    
+    return Object.entries(selectedSlots).map(([time, isAvailable]) => ({
+      date: dateString,
+      startTime: time,
+      endTime: calculateEndTime(time, 30),
+      available: isAvailable
+    }));
+  };
+  
+  // Calculate end time helper function
+  const calculateEndTime = (startTime, duration) => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startMinutes = hours * 60 + minutes;
+    const endMinutes = startMinutes + duration;
+    
+    const endHours = Math.floor(endMinutes / 60);
+    const remainingMinutes = endMinutes % 60;
+    
+    return `${endHours.toString().padStart(2, '0')}:${remainingMinutes.toString().padStart(2, '0')}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -149,7 +242,9 @@ const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect
       {/* Time Slots */}
       {selectedDate && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">Available Time Slots</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-foreground">Available Time Slots</h3>
+          </div>
           
           {morning.length > 0 && (
             <div>
@@ -157,19 +252,20 @@ const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect
                 <Icon name="Sunrise" size={16} className="mr-2" />
                 Morning (6:00 AM - 12:00 PM)
               </h4>
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-48 overflow-y-auto p-2">
                 {morning.map((time) => (
-                  <button
+                  <div
                     key={time}
-                    onClick={() => onTimeSelect(time)}
                     className={`p-2 text-sm rounded-lg border transition-healthcare ${
                       selectedTime === time
-                        ? 'border-primary bg-primary text-primary-foreground'
+                        ? 'border-primary bg-primary/10 text-primary'
                         : 'border-border bg-card text-foreground hover:border-primary/50'
                     }`}
                   >
-                    {formatTimeSlot(time)}
-                  </button>
+                    <div className="flex items-center justify-center">
+                      <span className="font-medium">{formatTimeSlot(time)}</span>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -181,19 +277,20 @@ const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect
                 <Icon name="Sun" size={16} className="mr-2" />
                 Afternoon (12:00 PM - 5:00 PM)
               </h4>
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-48 overflow-y-auto p-2">
                 {afternoon.map((time) => (
-                  <button
+                  <div
                     key={time}
-                    onClick={() => onTimeSelect(time)}
                     className={`p-2 text-sm rounded-lg border transition-healthcare ${
                       selectedTime === time
-                        ? 'border-primary bg-primary text-primary-foreground'
+                        ? 'border-primary bg-primary/10 text-primary'
                         : 'border-border bg-card text-foreground hover:border-primary/50'
                     }`}
                   >
-                    {formatTimeSlot(time)}
-                  </button>
+                    <div className="flex items-center justify-center">
+                      <span className="font-medium">{formatTimeSlot(time)}</span>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -205,19 +302,20 @@ const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect
                 <Icon name="Moon" size={16} className="mr-2" />
                 Evening (5:00 PM - 10:00 PM)
               </h4>
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-48 overflow-y-auto p-2">
                 {evening.map((time) => (
-                  <button
+                  <div
                     key={time}
-                    onClick={() => onTimeSelect(time)}
                     className={`p-2 text-sm rounded-lg border transition-healthcare ${
                       selectedTime === time
-                        ? 'border-primary bg-primary text-primary-foreground'
+                        ? 'border-primary bg-primary/10 text-primary'
                         : 'border-border bg-card text-foreground hover:border-primary/50'
                     }`}
                   >
-                    {formatTimeSlot(time)}
-                  </button>
+                    <div className="flex items-center justify-center">
+                      <span className="font-medium">{formatTimeSlot(time)}</span>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>

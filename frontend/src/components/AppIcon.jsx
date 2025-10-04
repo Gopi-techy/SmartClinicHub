@@ -74,6 +74,8 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     MoreVertical: LucideIcons.MoreVertical,
     Grid: LucideIcons.Grid,
     Grid3X3: LucideIcons.Grid3x3,
+    Filter: LucideIcons.Filter,
+    FilterX: LucideIcons.FilterX,
     List: LucideIcons.List,
     Maximize: LucideIcons.Maximize,
     Minimize: LucideIcons.Minimize,
@@ -106,6 +108,7 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     MapPin: LucideIcons.MapPin,
     Navigation: LucideIcons.Navigation,
     Globe: LucideIcons.Globe,
+    Building2: LucideIcons.Building2,
     
     // Media
     Camera: LucideIcons.Camera,
@@ -140,6 +143,11 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     Syringe: LucideIcons.Syringe,
     Brain: LucideIcons.Brain,
     Bone: LucideIcons.Bone,
+    Baby: LucideIcons.Baby,
+    Sparkles: LucideIcons.Sparkles,
+    HeartHandshake: LucideIcons.HeartHandshake,
+    Scan: LucideIcons.Scan,
+    Scissors: LucideIcons.Scissors,
     
     // Emergency
     PhoneCall: LucideIcons.PhoneCall,

@@ -6,7 +6,7 @@ const AppointmentTypeSelector = ({ selectedType, onTypeSelect }) => {
     {
       id: 'in-person',
       name: 'In-Person Visit',
-      icon: 'Building2',
+      icon: 'User',
       duration: '30-45 minutes',
       description: 'Visit the clinic for comprehensive examination and consultation',
       preparation: `Please arrive 15 minutes early for check-in\nBring your ID and insurance card\nWear comfortable clothing for examination`,
