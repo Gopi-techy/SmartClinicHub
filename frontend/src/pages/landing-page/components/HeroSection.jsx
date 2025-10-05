@@ -59,7 +59,7 @@ const HeroSection = () => {
   };
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center px-4 py-20">
+    <section className="relative min-h-screen flex items-center justify-center px-4 py-20 pt-28">
       {/* Animated Background Gradient */}
       <motion.div 
         className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-emerald-50"

@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { useAuth } from '../../contexts/AuthContext';
 import AuthTabs from './components/AuthTabs';
-import LoginForm from './components/LoginForm';
+import NewLoginForm from './components/NewLoginForm';
 import RegisterForm from './components/RegisterForm';
 import AuthHeader from './components/AuthHeader';
 import AuthFooter from './components/AuthFooter';
-import AuthFloatingElements from './components/AuthFloatingElements';
 
 const LoginRegistration = () => {
   const navigate = useNavigate();
@@ -46,8 +45,9 @@ const LoginRegistration = () => {
       await login(formData.email, formData.password, formData.rememberMe);
       // Navigation will be handled by the useEffect above
     } catch (err) {
-      // Error is handled by the AuthContext
+      // Error is handled by the AuthContext, but we also need to rethrow for the form component
       console.error('Login error:', err);
+      throw err; // Rethrow the error so NewLoginForm can display it
     } finally {
       setIsSubmitting(false);
     }
@@ -95,50 +95,36 @@ const LoginRegistration = () => {
         <meta name="keywords" content="healthcare login, medical platform, patient portal, doctor access, admin dashboard" />
       </Helmet>
 
-      <div className="min-h-screen bg-background flex">
-        {/* Left Side - Floating Animations */}
-        <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-          <AuthFloatingElements />
-        </div>
-        
-        {/* Right Side - Auth Forms */}
-        <div className="w-full lg:w-1/2 flex items-center justify-center px-4 py-8">
-          <div className="w-full max-w-md">
-            {/* Auth Header */}
-            <AuthHeader />
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-lg mx-auto">
+          {/* Auth Header */}
+          <AuthHeader />
+          
+          {/* Auth Card */}
+          <div className="bg-card border border-border rounded-xl shadow-md p-8">
+            {/* Tab Navigation */}
+            <AuthTabs activeTab={activeTab} onTabChange={setActiveTab} />
             
-            {/* Auth Card */}
-            <div className="bg-card border border-border rounded-xl shadow-healthcare-lg p-6 md:p-8">
-              {/* Tab Navigation */}
-              <AuthTabs activeTab={activeTab} onTabChange={setActiveTab} />
-              
-              {/* Error Display - Only show for login tab since RegisterForm handles its own errors */}
-              {error && activeTab === 'login' && (
-                <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                  <p className="text-sm text-destructive">{error}</p>
-                </div>
+            {/* Form Content */}
+            <div className="mt-8">
+              {activeTab === 'login' ? (
+                <NewLoginForm 
+                  onSubmit={handleLogin}
+                  isLoading={isSubmitting || isLoading}
+                  error={error}
+                />
+              ) : (
+                <RegisterForm 
+                  onSubmit={handleRegister}
+                  isLoading={isSubmitting}
+                  error={activeTab === 'register' ? error : null}
+                />
               )}
-              
-              {/* Form Content */}
-              <div className="space-y-6">
-                {activeTab === 'login' ? (
-                  <LoginForm 
-                    onSubmit={handleLogin}
-                    isLoading={isSubmitting}
-                  />
-                ) : (
-                  <RegisterForm 
-                    onSubmit={handleRegister}
-                    isLoading={isSubmitting}
-                    error={activeTab === 'register' ? error : null}
-                  />
-                )}
-              </div>
             </div>
-            
-            {/* Auth Footer */}
-            <AuthFooter />
           </div>
+          
+          {/* Auth Footer */}
+          <AuthFooter />
         </div>
       </div>
     </>

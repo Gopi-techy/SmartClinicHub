@@ -2,7 +2,6 @@ import React from 'react';
 import * as LucideIcons from 'lucide-react';
 
 const AppIcon = ({ name, size = 24, className = '', ...props }) => {
-  // Map icon names to Lucide React icons
   const iconMap = {
     // Navigation
     Home: LucideIcons.Home,
@@ -15,7 +14,7 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     User: LucideIcons.User,
     UserPlus: LucideIcons.UserPlus,
     UserCog: LucideIcons.UserCog,
-    
+
     // Healthcare
     Heart: LucideIcons.Heart,
     Stethoscope: LucideIcons.Stethoscope,
@@ -27,7 +26,7 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     CheckCircle2: LucideIcons.CheckCircle2,
     XCircle: LucideIcons.XCircle,
     Hospital: LucideIcons.Hospital,
-    
+
     // Communication
     MessageCircle: LucideIcons.MessageCircle,
     MessageSquare: LucideIcons.MessageSquare,
@@ -35,7 +34,7 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     Mail: LucideIcons.Mail,
     Phone: LucideIcons.Phone,
     Bell: LucideIcons.Bell,
-    
+
     // Actions
     Plus: LucideIcons.Plus,
     Minus: LucideIcons.Minus,
@@ -49,7 +48,7 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     Save: LucideIcons.Save,
     Eye: LucideIcons.Eye,
     EyeOff: LucideIcons.EyeOff,
-    
+
     // Navigation
     ChevronDown: LucideIcons.ChevronDown,
     ChevronUp: LucideIcons.ChevronUp,
@@ -60,26 +59,25 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     ArrowUp: LucideIcons.ArrowUp,
     ArrowDown: LucideIcons.ArrowDown,
     RefreshCw: LucideIcons.RefreshCw,
-    
+
     // Status
     Check: LucideIcons.Check,
     X: LucideIcons.X,
     Clock: LucideIcons.Clock,
     Timer: LucideIcons.Timer,
     Star: LucideIcons.Star,
-    
+
     // UI Elements
     Menu: LucideIcons.Menu,
     MoreHorizontal: LucideIcons.MoreHorizontal,
     MoreVertical: LucideIcons.MoreVertical,
     Grid: LucideIcons.Grid,
     Grid3X3: LucideIcons.Grid3x3,
-    Filter: LucideIcons.Filter,
     FilterX: LucideIcons.FilterX,
     List: LucideIcons.List,
     Maximize: LucideIcons.Maximize,
     Minimize: LucideIcons.Minimize,
-    
+
     // Data
     FileText: LucideIcons.FileText,
     File: LucideIcons.File,
@@ -89,39 +87,39 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     PieChart: LucideIcons.PieChart,
     TrendingUp: LucideIcons.TrendingUp,
     TrendingDown: LucideIcons.TrendingDown,
-    
+
     // Authentication
     LogIn: LucideIcons.LogIn,
     LogOut: LucideIcons.LogOut,
     Lock: LucideIcons.Lock,
     Unlock: LucideIcons.Unlock,
     Key: LucideIcons.Key,
-    
+
     // Time
     Sun: LucideIcons.Sun,
     Moon: LucideIcons.Moon,
     Sunrise: LucideIcons.Sunrise,
     Sunset: LucideIcons.Sunset,
     Loader2: LucideIcons.Loader2,
-    
+
     // Location
     MapPin: LucideIcons.MapPin,
     Navigation: LucideIcons.Navigation,
     Globe: LucideIcons.Globe,
     Building2: LucideIcons.Building2,
-    
+
     // Media
     Camera: LucideIcons.Camera,
     Video: LucideIcons.Video,
     Mic: LucideIcons.Mic,
     Volume2: LucideIcons.Volume2,
     VolumeX: LucideIcons.VolumeX,
-    
+
     // Social
     Share: LucideIcons.Share,
     Link: LucideIcons.Link,
     ExternalLink: LucideIcons.ExternalLink,
-    
+
     // Development
     Code: LucideIcons.Code,
     Bug: LucideIcons.Bug,
@@ -129,13 +127,13 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     Wifi: LucideIcons.Wifi,
     WifiOff: LucideIcons.WifiOff,
     Wrench: LucideIcons.Wrench,
-    
+
     // Business
     DollarSign: LucideIcons.DollarSign,
     CreditCard: LucideIcons.CreditCard,
     Receipt: LucideIcons.Receipt,
     ShoppingCart: LucideIcons.ShoppingCart,
-    
+
     // Health & Wellness
     Thermometer: LucideIcons.Thermometer,
     Droplets: LucideIcons.Droplets,
@@ -148,12 +146,12 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     HeartHandshake: LucideIcons.HeartHandshake,
     Scan: LucideIcons.Scan,
     Scissors: LucideIcons.Scissors,
-    
+
     // Emergency
     PhoneCall: LucideIcons.PhoneCall,
     Ambulance: LucideIcons.Ambulance,
     FirstAid: LucideIcons.FirstAid,
-    
+
     // Additional icons
     Info: LucideIcons.Info,
     Hash: LucideIcons.Hash,
@@ -162,23 +160,14 @@ const AppIcon = ({ name, size = 24, className = '', ...props }) => {
     Bot: LucideIcons.Bot,
     Send: LucideIcons.Send,
     Inbox: LucideIcons.Inbox,
-    MoreHorizontal: LucideIcons.MoreHorizontal,
-    Eye: LucideIcons.Eye,
-    ChevronRight: LucideIcons.ChevronRight,
-    
+
     // Default fallback
-    HelpCircle: LucideIcons.HelpCircle
+    HelpCircle: LucideIcons.HelpCircle,
   };
 
   const IconComponent = iconMap[name] || iconMap.HelpCircle;
 
-  return (
-    <IconComponent
-      size={size}
-      className={className}
-      {...props}
-    />
-  );
+  return <IconComponent size={size} className={className} {...props} />;
 };
 
 export default AppIcon;

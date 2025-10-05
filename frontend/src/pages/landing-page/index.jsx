@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
+import Navbar from './components/Navbar';
 import HeroSection from './components/HeroSection';
 import FeaturesSection from './components/FeaturesSection';
-import StatsSection from './components/StatsSection';
+// import StatsSection from './components/StatsSection';
 import CTASection from './components/CTASection';
 import FloatingElements from './components/FloatingElements';
 
@@ -35,18 +36,21 @@ const LandingPage = () => {
         {/* Floating Background Elements */}
         <FloatingElements />
       
-      {/* Hero Section */}
-      <HeroSection />
+        {/* Navbar */}
+        <Navbar />
       
-      {/* Features Section */}
-      <FeaturesSection />
+        {/* Hero Section */}
+        <HeroSection />
       
-      {/* Statistics Section */}
-      <StatsSection />
+        {/* Features Section */}
+        <FeaturesSection />
       
-      {/* Call to Action Section */}
-      <CTASection />
-    </div>
+        {/* Statistics Section */}
+        {/* <StatsSection /> */}
+      
+        {/* Call to Action Section */}
+        <CTASection />
+      </div>
     </>
   );
 };
