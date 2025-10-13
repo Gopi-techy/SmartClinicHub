@@ -115,7 +115,12 @@ const HealthRecordsManagement = () => {
     if (category === 'All') {
       counts[category] = healthRecords.length;
     } else {
-      counts[category] = healthRecords.filter(record => record.category === category).length;
+      // Look for category in s3Files[0].category since that's where categories are stored
+      counts[category] = healthRecords.filter(record => 
+        record.s3Files && 
+        record.s3Files.length > 0 && 
+        record.s3Files[0].category === category
+      ).length;
     }
     return counts;
   }, {});
@@ -123,8 +128,18 @@ const HealthRecordsManagement = () => {
   // Filter and sort records
   const filteredRecords = healthRecords
     .filter(record => {
-      if (selectedCategory !== 'All' && record.category !== selectedCategory) return false;
-      if (searchQuery && !record.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      // Check category in s3Files array
+      if (selectedCategory !== 'All' && 
+          (!record.s3Files || 
+           !record.s3Files.length || 
+           record.s3Files[0].category !== selectedCategory)) return false;
+      
+      // Check search query against record name
+      const recordName = record.s3Files && record.s3Files.length > 0 
+        ? record.s3Files[0].name 
+        : record.name || '';
+      if (searchQuery && !recordName.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      
       return true;
     })
     .sort((a, b) => {

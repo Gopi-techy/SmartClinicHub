@@ -136,7 +136,7 @@ SmartClinicHub implements an enterprise-grade N-tier architecture with strict do
 │  │  │ ├ Health Records│  │ ├ Services      │  │ ├ Validation     │   │     │
 │  │  │ ├ Prescriptions │  │ ├ Repositories  │  │ ├ Error Handling │   │     │
 │  │  │ ├ Users/Auth    │  │ ├ DTOs/Mappers  │  │ ├ Logging        │   │     │
-│  │  │ └ Messaging     │  │ └ Validators    │  │ └ Compression     │   │     │
+│  │  │ └ Messaging     │  │ └ Validators    │  │ └ Compression    │   │     │
 │  │  └─────────────────┘  └─────────────────┘  └──────────────────┘   │     │
 │  └───────────────────────────────────────────────────────────────────┘     │
 └────────────────────────────────┬───────────────────────────────────────────┘
@@ -173,51 +173,55 @@ SmartClinicHub implements an enterprise-grade N-tier architecture with strict do
 
 ### Detailed Data Flow Architecture
 
-The system implements a sophisticated data flow architecture with clearly defined request-response cycles, asynchronous processing patterns, and optimized data retrieval strategies:
+The system implements a clean data flow architecture with well-defined request-response cycles, asynchronous processing, and optimized data retrieval:
 
 ```
-┌──────────────┐      ┌────────────────┐      ┌───────────────────┐      ┌───────────────────┐
-│ Client Layer │      │ Frontend Layer │      │ Backend Layer     │      │ Persistence Layer │
-│ (Browser/PWA)│      │ (React/Redux)  │      │ (Node.js/Express) │      │ (MongoDB/S3)      │
-└──────┬───────┘      └───────┬────────┘      └─────────┬─────────┘      └─────────┬─────────┘
-       │                      │                         │                          │
-       │  1. User Interaction │                         │                          │
-       │─────────────────────►│                         │                          │
-       │                      │                         │                          │
-       │                      │ 2. Action Dispatched    │                          │
-       │                      │────────[Redux]──────────┤                          │
-       │                      │                         │                          │
-       │                      │ 3. API Request          │                          │
-       │                      │────────[Axios]─────────►│                          │
-       │                      │                         │                          │
-       │                      │                         │ 4. Request Validation    │
-       │                      │                         │─────[Middleware]─────────┤
-       │                      │                         │                          │
-       │                      │                         │ 5. Business Logic        │
-       │                      │                         │────[Service Layer]───────┤
-       │                      │                         │                          │
-       │                      │                         │ 6. Database Query        │
-       │                      │                         │─────[Mongoose]──────────►│
-       │                      │                         │                          │
-       │                      │                         │                          │
-       │                      │                         │◄──────[Documents]────────│
-       │                      │                         │ 7. Data Retrieved        │
-       │                      │                         │                          │
-       │                      │                         │ 8. Response Processing   │
-       │                      │                         │────[Transformation]──────┤
-       │                      │                         │                          │
-       │                      │◄───────[JSON]────────────│                          │
-       │                      │ 9. API Response         │                          │
-       │                      │                         │                          │
-       │                      │ 10. State Update        │                          │
-       │                      │────[Redux Store]────────┤                          │
-       │                      │                         │                          │
-       │◄──────[Render]───────│                         │                          │
-       │ 11. UI Update        │                         │                          │
-       │                      │                         │                          │
-       │                      │         WebSocket Events (Real-time Updates)       │
-       │◄─────────────────────│◄────────────────────────│◄─────────────────────────│
-       │                      │                         │                          │
+┌──────────────┐          ┌────────────────┐          ┌───────────────┐          ┌───────────────┐
+│  CLIENT      │          │  FRONTEND      │          │  BACKEND      │          │  DATABASE     │
+│  Browser/App │          │  React/Redux   │          │  Node/Express  │          │  MongoDB/S3   │
+└──────┬───────┘          └───────┬────────┘          └───────┬───────┘          └───────┬───────┘
+       │                          │                           │                          │
+       │   USER INTERACTION       │                           │                          │
+       │  (Click, Form Submit)    │                           │                          │
+       │─────────────────────────►│                           │                          │
+       │                          │                           │                          │
+       │                          │   DISPATCH ACTION         │                           
+       │                          │   (Redux)                 │                           
+       │                          │                           │                           
+       │                          │   API REQUEST            │                           
+       │                          │   (Axios/Fetch)          │                           
+       │                          │──────────────────────────►│                          │
+       │                          │                           │                          │
+       │                          │                           │   REQUEST VALIDATION     │
+       │                          │                           │   (Auth/Middleware)      │
+       │                          │                           │                          │
+       │                          │                           │   BUSINESS LOGIC         │
+       │                          │                           │   (Service Layer)        │
+       │                          │                           │                          │
+       │                          │                           │   DATABASE QUERY         │
+       │                          │                           │   (Mongoose/ORM)         │
+       │                          │                           │─────────────────────────►│
+       │                          │                           │                          │
+       │                          │                           │◄─────────────────────────│
+       │                          │                           │   DATA RETRIEVED         │
+       │                          │                           │                          │
+       │                          │                           │   RESPONSE PROCESSING    │
+       │                          │                           │   (Transform/Format)     │
+       │                          │                           │                          │
+       │                          │◄──────────────────────────│                          │
+       │                          │   API RESPONSE (JSON)     │                          │
+       │                          │                           │                          │
+       │                          │   UPDATE STATE            │                          │
+       │                          │   (Redux Store)           │                          │
+       │                          │                           │                          │
+       │◄─────────────────────────│                           │                          │
+       │   UI UPDATE              │                           │                          │
+       │   (React Render)         │                           │                          │
+       │                          │                           │                          │
+       │                          │                           │                          │
+       │◄─────────────────────────┼───────────────────────────┼──────────────────────────│
+       │          WEBSOCKET EVENTS / REAL-TIME UPDATES (Socket.IO)                       │
+       │                          │                           │                          │
 ```
 
 **Key Processing Stages:**
@@ -227,117 +231,78 @@ The system implements a sophisticated data flow architecture with clearly define
 
 ### Authentication & Authorization Flow
 
-The system implements a comprehensive JWT-based authentication system with secure token rotation, cryptographic verification, and multi-layered authorization controls:
+The system implements a secure JWT-based authentication system with token rotation, cryptographic verification, and role-based access control:
 
 ```
-┌──────────────────┐      ┌─────────────────────┐      ┌────────────────────┐      ┌─────────────────┐
-│  Client Device   │      │  Auth Service       │      │  Database Service  │      │  Redis Cache    │
-│  (Browser/Mobile)│      │  (JWT Handler)      │      │  (MongoDB)         │      │  (Session Store)│
-└───────┬──────────┘      └──────────┬──────────┘      └──────────┬─────────┘      └───────┬─────────┘
-        │                            │                            │                        │
-        │ 1. Authentication Request  │                            │                        │
-        │ [credentials+device info]  │                            │                        │
-        │───────────────────────────►│                            │                        │
-        │                            │                            │                        │
-        │                            │ 2. Query User Record       │                        │
-        │                            │───────────────────────────►│                        │
-        │                            │                            │                        │
-        │                            │ 3. Return User+Hash+Roles  │                        │
-        │                            │◄───────────────────────────│                        │
-        │                            │                            │                        │
-        │                            │ 4. Verify Password         │                        │
-        │                            │    [bcrypt.compare]        │                        │
-        │                            │────────────[CPU]───────────│                        │
-        │                            │                            │                        │
-        │                            │ 5. [Optional] 2FA Verify   │                        │
-        │                            │    [TOTP/SMS verification] │                        │
-        │                            │────────────[API]───────────│                        │
-        │                            │                            │                        │
-        │                            │ 6. Generate Token Set      │                        │
-        │                            │    - Access Token (15m)    │                        │
-        │                            │      [RS256 signed JWT]    │                        │
-        │                            │    - Refresh Token (7d)    │                        │
-        │                            │      [Random UUID v4]      │                        │
-        │                            │    - CSRF Token            │                        │
-        │                            │      [SHA-256 digest]      │                        │
-        │                            │─────────[Crypto Ops]───────│                        │
-        │                            │                            │                        │
-        │                            │ 7. Store Token Metadata    │                        │
-        │                            │   - Refresh token hash     │                        │
-        │                            │   - Device fingerprint     │                        │
-        │                            │   - IP address             │                        │
-        │                            │   - Expiration timestamps  │                        │
-        │                            │   - CSRF token hash        │                        │
-        │                            │───────────────────────────────────────────────────► │
-        │                            │                            │                        │
-        │                            │ 8. Record Login Event      │                        │
-        │                            │───────────────────────────►│                        │
-        │                            │                            │                        │
-        │ 9. Return Auth Package:    │                            │                        │
-        │   - Access Token [JWT]     │                            │                        │
-        │   - CSRF Token             │                            │                        │
-        │   - Refresh Token          │                            │                        │
-        │     [HttpOnly Cookie]      │                            │                        │
-        │◄───────────────────────────│                            │                        │
-        │                            │                            │                        │
-        │ 10. Request Protected      │                            │                        │
-        │     Resource:              │                            │                        │
-        │     - Authorization Header │                            │                        │
-        │     - X-CSRF-Token Header  │                            │                        │
-        │───────────────────────────►│                            │                        │
-        │                            │                            │                        │
-        │                            │ 11. Token Validation:      │                        │
-        │                            │     - JWT Signature        │                        │
-        │                            │     - Expiration Time      │                        │
-        │                            │     - Role/Permissions     │                        │
-        │                            │     - CSRF Token Match     │                        │
-        │                            │─────[JWT Verification]─────│                        │
-        │                            │                            │                        │
-        │ 12. Protected Resource     │                            │                        │
-        │     Response OR            │                            │                        │
-        │     401/403 Error          │                            │                        │
-        │◄───────────────────────────│                            │                        │
-        │                            │                            │                        │
-        │ 13. Token Expired:         │                            │                        │
-        │     Refresh Request        │                            │                        │
-        │     - Refresh Token Cookie │                            │                        │
-        │     - CSRF Token           │                            │                        │
-        │     - Device Fingerprint   │                            │                        │
-        │───────────────────────────►│                            │                        │
-        │                            │                            │                        │
-        │                            │ 14. Verify Refresh Token   │                        │
-        │                            │     - Token Existence      │                        │
-        │                            │     - Token Validity       │                        │
-        │                            │     - Device Match         │                        │
-        │                            │     - Not Blacklisted      │                        │
-        │                            │────────────────────────────────────────────────────►│
-        │                            │                            │                        │
-        │                            │ 15. Token Status           │                        │
-        │                            │◄───────────────────────────────────────────────────│
-        │                            │                            │                        │
-        │                            │ 16. Generate New Tokens    │                        │
-        │                            │     with Rotation          │                        │
-        │                            │─────────[Crypto Ops]───────│                        │
-        │                            │                            │                        │
-        │                            │ 17. Update Token Records   │                        │
-        │                            │     - Invalidate Old       │                        │
-        │                            │     - Store New            │                        │
-        │                            │     - Update Metadata      │                        │
-        │                            │────────────────────────────────────────────────────►│
-        │                            │                            │                        │
-        │ 18. New Token Package      │                            │                        │
-        │◄───────────────────────────│                            │                        │
-        │                            │                            │                        │
-        │ 19. Logout Request         │                            │                        │
-        │───────────────────────────►│                            │                        │
-        │                            │ 20. Invalidate All Tokens  │                        │
-        │                            │     for User Session       │                        │
-        │                            │────────────────────────────────────────────────────►│
-        │                            │                            │                        │
-        │ 21. Logout Confirmation    │                            │                        │
-        │◄───────────────────────────│                            │                        │
-        │                            │                            │                        │
-        │                            │                            │                        │
+┌───────────────┐          ┌───────────────┐          ┌───────────────┐          ┌───────────────┐
+│  CLIENT       │          │  AUTH SERVICE │          │  DATABASE     │          │  REDIS CACHE  │
+│  BROWSER/APP  │          │  JWT HANDLER  │          │  MongoDB      │          │  Session Store│
+└───────┬───────┘          └───────┬───────┘          └───────┬───────┘          └───────┬───────┘
+        │                          │                          │                          │
+        │   LOGIN REQUEST          │                          │                          │
+        │  (email + password)      │                          │                          │
+        │─────────────────────────►│                          │                          │
+        │                          │                          │                          │
+        │                          │   FIND USER RECORD       │                          │
+        │                          │─────────────────────────►│                          │
+        │                          │                          │                          │
+        │                          │   USER DATA + PASSWORD   │                          │
+        │                          │◄─────────────────────────│                          │
+        │                          │                          │                          │
+        │                          │   VERIFY PASSWORD        │                          │
+        │                          │   (bcrypt compare)       │                          │
+        │                          │                          │                          │
+        │                          │   CREATE TOKEN SET:      │                          │
+        │                          │   - Access Token (15m)   │                          │
+        │                          │   - Refresh Token (7d)   │                          │
+        │                          │   - CSRF Token           │                          │
+        │                          │                          │                          │
+        │                          │   STORE TOKEN DATA       │                          │
+        │                          │─────────────────────────────────────────────────────►│
+        │                          │                          │                          │
+        │                          │   LOG LOGIN EVENT        │                          │
+        │                          │─────────────────────────►│                          │
+        │                          │                          │                          │
+        │   AUTH RESPONSE:         │                          │                          │
+        │   - Access Token         │                          │                          │
+        │   - CSRF Token           │                          │                          │
+        │   - HttpOnly Cookie      │                          │                          │
+        │◄─────────────────────────│                          │                          │
+        │                          │                          │                          │
+        │   API REQUEST            │                          │                          │
+        │   + Auth Header          │                          │                          │
+        │   + CSRF Token           │                          │                          │
+        │─────────────────────────►│                          │                          │
+        │                          │   VALIDATE TOKEN:        │                          │
+        │                          │   - Signature            │                          │
+        │                          │   - Expiration           │                          │
+        │                          │   - User Permissions     │                          │
+        │                          │                          │                          │
+        │   API RESPONSE or        │                          │                          │
+        │   401/403 ERROR          │                          │                          │
+        │◄─────────────────────────│                          │                          │
+        │                          │                          │                          │
+        │   TOKEN REFRESH REQUEST  │                          │                          │
+        │   (when access expires)  │                          │                          │
+        │─────────────────────────►│                          │                          │
+        │                          │   VERIFY REFRESH TOKEN   │                          │
+        │                          │─────────────────────────────────────────────────────►│
+        │                          │                          │                          │
+        │                          │   TOKEN STATUS           │                          │
+        │                          │◄────────────────────────────────────────────────────│
+        │                          │                          │                          │
+        │                          │   GENERATE NEW TOKENS    │                          │
+        │                          │   UPDATE TOKEN RECORDS   │                          │
+        │                          │─────────────────────────────────────────────────────►│
+        │                          │                          │                          │
+        │   NEW TOKEN PACKAGE      │                          │                          │
+        │◄─────────────────────────│                          │                          │
+        │                          │                          │                          │
+        │   LOGOUT REQUEST         │                          │                          │
+        │─────────────────────────►│   INVALIDATE TOKENS      │                          │
+        │                          │─────────────────────────────────────────────────────►│
+        │   LOGOUT CONFIRMATION    │                          │                          │
+        │◄─────────────────────────│                          │                          │
 ```
 
 **Security Implementation Details:**
@@ -398,19 +363,19 @@ The ML service communicates with the core application through a well-defined API
 │  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘ │   │
 │  │                          │                                          │   │
 │  │                          ▼                                          │   │
-│  │  ┌───────────────────────────────────────────────────────────────┐ │   │
-│  │  │                   AI Model Hub & Vector Storage               │ │   │
-│  │  │                                                               │ │   │
-│  │  │  ┌─────────────┐  ┌─────────────┐  ┌───────────────────────┐  │ │   │
-│  │  │  │ Google      │  │ Pinecone    │  │ Hugging Face Models   │  │ │   │
-│  │  │  │ Gemini API  │  │ Vector DB   │  │ - Medical NER         │  │ │   │
-│  │  │  │ - RAG       │  │ - Medical   │  │ - Clinical BERT       │  │ │   │
-│  │  │  │   Context   │  │   Knowledge │  │ - Healthcare          │  │ │   │
-│  │  │  │ - Medical   │  │   Chunks    │  │   Classification      │  │ │   │
-│  │  │  │   Reasoning │  │ - Semantic  │  │ - Symptom Analysis    │  │ │   │
-│  │  │  │             │  │   Index     │  │                       │  │ │   │
-│  │  │  └─────────────┘  └─────────────┘  └───────────────────────┘  │ │   │
-│  │  └───────────────────────────────────────────────────────────────┘ │   │
+│  │  ┌───────────────────────────────────────────────────────────────┐  │   │
+│  │  │                   AI Model Hub & Vector Storage               │  │   │
+│  │  │                                                               │  │   │
+│  │  │  ┌─────────────┐  ┌─────────────┐  ┌───────────────────────┐  │  │   │
+│  │  │  │ Google      │  │ Pinecone    │  │ Hugging Face Models   │  │  │   │
+│  │  │  │ Gemini API  │  │ Vector DB   │  │ - Medical NER         │  │  │   │
+│  │  │  │ - RAG       │  │ - Medical   │  │ - Clinical BERT       │  │  │   │
+│  │  │  │   Context   │  │   Knowledge │  │ - Healthcare          │  │  │   │
+│  │  │  │ - Medical   │  │   Chunks    │  │   Classification      │  │  │   │
+│  │  │  │   Reasoning │  │ - Semantic  │  │ - Symptom Analysis    │  │  │   │
+│  │  │  │             │  │   Index     │  │                       │  │  │   │
+│  │  │  └─────────────┘  └─────────────┘  └───────────────────────┘  │  │   │
+│  │  └───────────────────────────────────────────────────────────────┘  │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                            │
 │  ┌────────────────────────────┐  ┌─────────────────────────────────────┐   │
@@ -455,82 +420,82 @@ The real-time communication system implements a sophisticated event-driven archi
                                  │                      │
 ┌────────────────────────────────┼──────────────────────┼─────────────────────────────┐
 │                                │                      │                             │
-│  ┌────────────────────────────┐│    ┌─────────────────┼─────────────────────────┐   │
-│  │ Socket.IO Load Balancer    ││    │                 │                         │   │
-│  │ - Sticky Sessions          ││    │                 │                         │   │
-│  │ - Connection Distribution  │┼────┘                 │                         │   │
-│  │ - Health Monitoring        ││                      │                         │   │
-│  └──────────────┬─────────────┘│                      │                         │   │
-│                 │              │                      │                         │   │
-│  ┌──────────────▼─────────────────────────────────────▼─────────────────────┐   │   │
-│  │                     Socket.IO Server Cluster                             │   │   │
-│  │                                                                          │   │   │
-│  │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐        │   │   │
-│  │  │ Socket.IO Node 1 │  │ Socket.IO Node 2 │  │ Socket.IO Node N │        │   │   │
-│  │  │                  │  │                  │  │                  │        │   │   │
-│  │  │ ┌──────────────┐ │  │ ┌──────────────┐ │  │ ┌──────────────┐ │        │   │   │
-│  │  │ │ Namespace    │ │  │ │ Namespace    │ │  │ │ Namespace    │ │        │   │   │
-│  │  │ │ Handler      │ │  │ │ Handler      │ │  │ │ Handler      │ │        │   │   │
-│  │  │ └──────────────┘ │  │ └──────────────┘ │  │ └──────────────┘ │        │   │   │
-│  │  │                  │  │                  │  │                  │        │   │   │
-│  │  │ ┌──────────────┐ │  │ ┌──────────────┐ │  │ ┌──────────────┐ │        │   │   │
-│  │  │ │ Room Manager │ │  │ │ Room Manager │ │  │ │ Room Manager │ │        │   │   │
-│  │  │ └──────────────┘ │  │ └──────────────┘ │  │ └──────────────┘ │        │   │   │
-│  │  │                  │  │                  │  │                  │        │   │   │
-│  │  │ ┌──────────────┐ │  │ ┌──────────────┐ │  │ ┌──────────────┐ │        │   │   │
-│  │  │ │ Auth         │ │  │ │ Auth         │ │  │ │ Auth         │ │        │   │   │
-│  │  │ │ Middleware   │ │  │ │ Middleware   │ │  │ │ Middleware   │ │        │   │   │
-│  │  │ └──────────────┘ │  │ └──────────────┘ │  │ └──────────────┘ │        │   │   │
-│  │  └──────────┬───────┘  └──────────┬───────┘  └──────────┬───────┘        │   │   │
-│  │             │                     │                     │                 │   │   │
-│  └─────────────┼─────────────────────┼─────────────────────┼─────────────────┘   │   │
-│                │                     │                     │                     │   │
-│  ┌─────────────▼─────────────────────▼─────────────────────▼──────────────────┐  │   │
-│  │                          Redis PUB/SUB Adapter                             │  │   │
-│  │                                                                            │  │   │
-│  │  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐    │  │   │
-│  │  │ Channel: patients  │  │ Channel: doctors   │  │ Channel: admin     │    │  │   │
-│  │  └────────────────────┘  └────────────────────┘  └────────────────────┘    │  │   │
-│  │                                                                            │  │   │
-│  │  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐    │  │   │
-│  │  │ Channel:           │  │ Channel:           │  │ Channel:           │    │  │   │
-│  │  │ appointments       │  │ notifications      │  │ emergency          │    │  │   │
-│  │  └────────────────────┘  └────────────────────┘  └────────────────────┘    │  │   │
-│  └────────────────────────────────────┬─────────────────────────────────────┬─┘  │   │
-│                                       │                                     │    │   │
-│  ┌─────────────────────────────────── ▼ ────────────────────────────────────┼────┘   │
-│  │                              Message Broker                              │        │
-│  │                            (RabbitMQ/Kafka)                              │        │
-│  │                                                                          │        │
-│  │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐              │        │
-│  │  │ Exchange:      │  │ Exchange:      │  │ Exchange:      │              │        │
-│  │  │ medical.events │  │ system.events  │  │ audit.events   │              │        │
-│  │  │                │  │                │  │                │              │        │
-│  │  │ ┌──────────┐   │  │ ┌──────────┐   │  │ ┌──────────┐   │              │        │
-│  │  │ │ Queue 1  │   │  │ │ Queue 1  │   │  │ │ Queue 1  │   │              │        │
-│  │  │ └──────────┘   │  │ └──────────┘   │  │ └──────────┘   │              │        │
-│  │  │ ┌──────────┐   │  │ ┌──────────┐   │  │ ┌──────────┐   │              │        │
-│  │  │ │ Queue 2  │   │  │ │ Queue 2  │   │  │ │ Queue 2  │   │              │        │
-│  │  │ └──────────┘   │  │ └──────────┘   │  │ └──────────┘   │              │        │
-│  │  │ ┌──────────┐   │  │ ┌──────────┐   │  │ ┌──────────┐   │              │        │
-│  │  │ │ Queue 3  │   │  │ │ Queue 3  │   │  │ │ Queue 3  │   │              │        │
-│  │  │ └──────────┘   │  │ └──────────┘   │  │ └──────────┘   │              │        │
-│  │  └───────┬────────┘  └────────┬───────┘  └────────┬───────┘              │        │
-│  └──────────┼─────────────────────┼────────────────┬─┼──────────────────────┘        │
-│             │                     │                │ │                               │
-│  ┌──────────▼─────┐   ┌───────────▼───────┐   ┌────▼─▼───────────────┐               │
-│  │ Event Processor│   │ Notification Svc  │   │ Persistent Storage   │               │
-│  │ ┌────────────┐ │   │ ┌───────────────┐ │   │ ┌─────────────────┐  │               │
-│  │ │ Business   │ │   │ │ Push          │ │   │ │ MongoDB         │  │               │
-│  │ │ Logic      │ │   │ │ Notifications │ │   │ │ - Message Logs  │  │               │
-│  │ └────────────┘ │   │ └───────────────┘ │   │ │ - User States   │  │               │
-│  │ ┌────────────┐ │   │ ┌───────────────┐ │   │ │ - Activity Data │  │               │
-│  │ │ Analytics  │ │   │ │ Email Service │ │   │ └─────────────────┘  │               │
-│  │ └────────────┘ │   │ └───────────────┘ │   │ ┌─────────────────┐  │               │
-│  │ ┌────────────┐ │   │ ┌───────────────┐ │   │ │ TimescaleDB     │  │               │
-│  │ │ Event      │ │   │ │ SMS Gateway   │ │   │ │ - Time-series   │  │               │
-│  │ │ Triggers   │ │   │ └───────────────┘ │   │ │ - Analytics     │  │               │
-│  │ └────────────┘ │   │                   │   │ └─────────────────┘  │               │
+│  ┌────────────────────────────┐│    ┌─────────────────┼──────────────────────────┐  │
+│  │ Socket.IO Load Balancer    ││    │                 │                          │  │
+│  │ - Sticky Sessions          ││    │                 │                          │  │
+│  │ - Connection Distribution  │┼────┘                 │                          │  │
+│  │ - Health Monitoring        ││                      │                          │  │
+│  └──────────────┬─────────────┘│                      │                          │  │
+│                 │              │                      │                          │  │
+│  ┌──────────────▼─────────────────────────────────────▼──────────────────────┐   │  │
+│  │                     Socket.IO Server Cluster                              │   │  │
+│  │                                                                           │   │  │
+│  │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐         │   │  │
+│  │  │ Socket.IO Node 1 │  │ Socket.IO Node 2 │  │ Socket.IO Node N │         │   │  │
+│  │  │                  │  │                  │  │                  │         │   │  │
+│  │  │ ┌──────────────┐ │  │ ┌──────────────┐ │  │ ┌──────────────┐ │         │   │  │
+│  │  │ │ Namespace    │ │  │ │ Namespace    │ │  │ │ Namespace    │ │         │   │  │
+│  │  │ │ Handler      │ │  │ │ Handler      │ │  │ │ Handler      │ │         │   │  │
+│  │  │ └──────────────┘ │  │ └──────────────┘ │  │ └──────────────┘ │         │   │  │
+│  │  │                  │  │                  │  │                  │         │   │  │
+│  │  │ ┌──────────────┐ │  │ ┌──────────────┐ │  │ ┌──────────────┐ │         │   │  │
+│  │  │ │ Room Manager │ │  │ │ Room Manager │ │  │ │ Room Manager │ │         │   │  │
+│  │  │ └──────────────┘ │  │ └──────────────┘ │  │ └──────────────┘ │         │   │  │
+│  │  │                  │  │                  │  │                  │         │   │  │
+│  │  │ ┌──────────────┐ │  │ ┌──────────────┐ │  │ ┌──────────────┐ │         │   │  │
+│  │  │ │ Auth         │ │  │ │ Auth         │ │  │ │ Auth         │ │         │   │  │
+│  │  │ │ Middleware   │ │  │ │ Middleware   │ │  │ │ Middleware   │ │         │   │  │
+│  │  │ └──────────────┘ │  │ └──────────────┘ │  │ └──────────────┘ │         │   │  │
+│  │  └──────────┬───────┘  └──────────┬───────┘  └──────────┬───────┘         │   │  │
+│  │             │                     │                     │                 │   │  │
+│  └─────────────┼─────────────────────┼─────────────────────┼─────────────────┘   │  │
+│                │                     │                     │                     │  │
+│  ┌─────────────▼─────────────────────▼─────────────────────▼──────────────────┐  │  │
+│  │                          Redis PUB/SUB Adapter                             │  │  │
+│  │                                                                            │  │  │
+│  │  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐    │  │  │
+│  │  │ Channel: patients  │  │ Channel: doctors   │  │ Channel: admin     │    │  │  │
+│  │  └────────────────────┘  └────────────────────┘  └────────────────────┘    │  │  │
+│  │                                                                            │  │  │
+│  │  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐    │  │  │
+│  │  │ Channel:           │  │ Channel:           │  │ Channel:           │    │  │  │
+│  │  │ appointments       │  │ notifications      │  │ emergency          │    │  │  │
+│  │  └────────────────────┘  └────────────────────┘  └────────────────────┘    │  │  │
+│  └────────────────────────────────────┬─────────────────────────────────────┬─┘  │  │
+│                                       │                                     │    │  │
+│  ┌─────────────────────────────────── ▼ ────────────────────────────────────┼────┘  │
+│  │                              Message Broker                              │       │
+│  │                            (RabbitMQ/Kafka)                              │       │
+│  │                                                                          │       │
+│  │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐              │       │
+│  │  │ Exchange:      │  │ Exchange:      │  │ Exchange:      │              │       │
+│  │  │ medical.events │  │ system.events  │  │ audit.events   │              │       │
+│  │  │                │  │                │  │                │              │       │
+│  │  │ ┌──────────┐   │  │ ┌──────────┐   │  │ ┌──────────┐   │              │       │
+│  │  │ │ Queue 1  │   │  │ │ Queue 1  │   │  │ │ Queue 1  │   │              │       │
+│  │  │ └──────────┘   │  │ └──────────┘   │  │ └──────────┘   │              │       │
+│  │  │ ┌──────────┐   │  │ ┌──────────┐   │  │ ┌──────────┐   │              │       │
+│  │  │ │ Queue 2  │   │  │ │ Queue 2  │   │  │ │ Queue 2  │   │              │       │
+│  │  │ └──────────┘   │  │ └──────────┘   │  │ └──────────┘   │              │       │
+│  │  │ ┌──────────┐   │  │ ┌──────────┐   │  │ ┌──────────┐   │              │       │
+│  │  │ │ Queue 3  │   │  │ │ Queue 3  │   │  │ │ Queue 3  │   │              │       │
+│  │  │ └──────────┘   │  │ └──────────┘   │  │ └──────────┘   │              │       │
+│  │  └───────┬────────┘  └────────┬───────┘  └────────┬───────┘              │       │
+│  └──────────┼─────────────────────┼────────────────┬─┼──────────────────────┘       │
+│             │                     │                │ │                              │
+│  ┌──────────▼─────┐   ┌───────────▼───────┐   ┌────▼─▼───────────────┐              │
+│  │ Event Processor│   │ Notification Svc  │   │ Persistent Storage   │              │
+│  │ ┌────────────┐ │   │ ┌───────────────┐ │   │ ┌─────────────────┐  │              │
+│  │ │ Business   │ │   │ │ Push          │ │   │ │ MongoDB         │  │              │
+│  │ │ Logic      │ │   │ │ Notifications │ │   │ │ - Message Logs  │  │              │
+│  │ └────────────┘ │   │ └───────────────┘ │   │ │ - User States   │  │              │
+│  │ ┌────────────┐ │   │ ┌───────────────┐ │   │ │ - Activity Data │  │              │
+│  │ │ Analytics  │ │   │ │ Email Service │ │   │ └─────────────────┘  │              │
+│  │ └────────────┘ │   │ └───────────────┘ │   │ ┌─────────────────┐  │              │
+│  │ ┌────────────┐ │   │ ┌───────────────┐ │   │ │ TimescaleDB     │  │              │
+│  │ │ Event      │ │   │ │ SMS Gateway   │ │   │ │ - Time-series   │  │              │
+│  │ │ Triggers   │ │   │ └───────────────┘ │   │ │ - Analytics     │  │              │
+│  │ └────────────┘ │   │                   │   │ └─────────────────┘  │              │
 │  └────────────────┘   └───────────────────┘   └─────────────────────┘               │
 │                                                                                     │
 └─────────────────────────────────────────────────────────────────────────────────────┘

@@ -244,6 +244,9 @@ const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-foreground">Available Time Slots</h3>
+            <div className="text-sm text-muted-foreground">
+              Click to select a time
+            </div>
           </div>
           
           {morning.length > 0 && (
@@ -254,18 +257,19 @@ const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect
               </h4>
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-48 overflow-y-auto p-2">
                 {morning.map((time) => (
-                  <div
+                  <button
                     key={time}
-                    className={`p-2 text-sm rounded-lg border transition-healthcare ${
+                    onClick={() => onTimeSelect(time)}
+                    className={`p-2 text-sm rounded-lg border transition-healthcare cursor-pointer hover:scale-105 ${
                       selectedTime === time
                         ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-card text-foreground hover:border-primary/50'
+                        : 'border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5'
                     }`}
                   >
                     <div className="flex items-center justify-center">
                       <span className="font-medium">{formatTimeSlot(time)}</span>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -279,18 +283,19 @@ const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect
               </h4>
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-48 overflow-y-auto p-2">
                 {afternoon.map((time) => (
-                  <div
+                  <button
                     key={time}
-                    className={`p-2 text-sm rounded-lg border transition-healthcare ${
+                    onClick={() => onTimeSelect(time)}
+                    className={`p-2 text-sm rounded-lg border transition-healthcare cursor-pointer hover:scale-105 ${
                       selectedTime === time
                         ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-card text-foreground hover:border-primary/50'
+                        : 'border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5'
                     }`}
                   >
                     <div className="flex items-center justify-center">
                       <span className="font-medium">{formatTimeSlot(time)}</span>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -304,18 +309,19 @@ const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect
               </h4>
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-48 overflow-y-auto p-2">
                 {evening.map((time) => (
-                  <div
+                  <button
                     key={time}
-                    className={`p-2 text-sm rounded-lg border transition-healthcare ${
+                    onClick={() => onTimeSelect(time)}
+                    className={`p-2 text-sm rounded-lg border transition-healthcare cursor-pointer hover:scale-105 ${
                       selectedTime === time
                         ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-card text-foreground hover:border-primary/50'
+                        : 'border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5'
                     }`}
                   >
                     <div className="flex items-center justify-center">
                       <span className="font-medium">{formatTimeSlot(time)}</span>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -326,6 +332,25 @@ const CalendarView = ({ selectedDate, onDateSelect, availableSlots, onTimeSelect
               <Icon name="Calendar" size={48} className="mx-auto text-muted-foreground mb-2" />
               <p className="text-muted-foreground">No available slots for this date</p>
               <p className="text-sm text-muted-foreground">Please select another date</p>
+            </div>
+          )}
+
+          {/* Selected Time Confirmation */}
+          {selectedTime && (
+            <div className="mt-6 p-4 bg-primary/10 border border-primary/20 rounded-lg">
+              <div className="flex items-center justify-center space-x-3">
+                <Icon name="CheckCircle" size={20} className="text-primary" />
+                <div className="text-center">
+                  <p className="font-medium text-primary">Time Selected</p>
+                  <p className="text-sm text-primary/80">
+                    {formatTimeSlot(selectedTime)} on {selectedDate.toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </p>
+                </div>
+              </div>
             </div>
           )}
         </div>
