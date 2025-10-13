@@ -4,6 +4,14 @@
 
 SmartClinicHub is an innovative end-to-end healthcare management solution that seamlessly integrates cutting-edge web technologies. Built with a modern tech stack featuring **Node.js**, **Express**, **React 18**, **Redux Toolkit**, **MongoDB**, and **Socket.IO** for real-time communication, this platform demonstrates excellence in full-stack development. The application delivers a comprehensive suite of tools for healthcare facility management, streamlined patient care workflows, secure medical record handling, and enhanced communication between healthcare providers and patients.
 
+## 🎬 Project Demo
+
+https://github.com/Gopi-techy/SmartClinicHub/raw/main/Demo/Video/SmartClinicHub.mp4
+
+*Complete platform walkthrough showcasing AI-powered medical assistance, real-time communication, and comprehensive healthcare management features*
+
+
+
 ### ML & AI Components:
 
 - **Flask** for Python-based ML microservices
